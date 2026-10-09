@@ -12,11 +12,11 @@
 **Exit criteria:** No high-impact product or architecture decision is left to the coding agent to guess.
 
 ## Phase 1 — Extension scaffold
-- [ ] Create React + TypeScript + Vite + Manifest V3 scaffold.
-- [ ] Set up testing toolchain: TypeScript checks (`tsc --noEmit`), ESLint, Vitest, React Testing Library, and jsdom.
-- [ ] Build a valid unpacked extension.
-- [ ] Add basic popup and full-page editor navigation.
-- [ ] Document local setup.
+- [x] Create React + TypeScript + Vite + Manifest V3 scaffold.
+- [x] Set up testing toolchain: TypeScript checks (`tsc --noEmit`), ESLint, Vitest, React Testing Library, and jsdom.
+- [x] Build a valid unpacked extension.
+- [x] Add basic popup and full-page editor navigation.
+- [x] Document local setup.
 - [ ] Load in Chrome and verify basic navigation.
 
 **Exit criteria:** Extension loads, popup opens, editor tab opens, test runner passes, build passes.

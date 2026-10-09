@@ -22,6 +22,7 @@ Record approved product and technical decisions here. Do not treat recommendatio
 | D-014 | Canonical Markdown export: Generate reports matching the approved Markdown template with matching sanitized filename stems, relative screenshot references, and safe text formatting. Export Markdown and screenshot as separate files. | Confirmed |
 | D-015 | Download mechanism: Use browser-native Blob URLs via `<a download>` links. Do not request the Chrome `downloads` permission for MVP. Document browser multi-download permission prompt limitation. | Confirmed |
 | D-016 | Testing strategy: TypeScript type checking (`tsc --noEmit`), ESLint with TypeScript support, Vitest, React Testing Library, and jsdom with focused Chrome API mocks. Real extension APIs verified through manual testing in Chrome. | Confirmed |
+| D-017 | Extension build tooling: Selected `@crxjs/vite-plugin` (v3.0.0). Rationale: minimal dependency footprint, robust Manifest V3 module bundling, seamless HTML entry point resolution, and direct compatibility with Vitest. | Confirmed |
 
 ## Open decisions
 

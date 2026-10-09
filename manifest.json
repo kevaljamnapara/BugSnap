@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "BugSnap",
+  "version": "0.1.0",
+  "description": "Privacy-first defect capture and reporting tool for developers and QA testers.",
+  "permissions": [
+    "activeTab",
+    "storage"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "BugSnap"
+  },
+  "background": {
+    "service_worker": "src/background/index.ts",
+    "type": "module"
+  }
+}
