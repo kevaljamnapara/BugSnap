@@ -19,6 +19,7 @@ import {
 } from './exportUtils';
 import { ReportManagement } from './ReportManagement';
 import { cropImageDataUrl } from '../shared/cropUtils';
+import { DebugTimeline } from './DebugTimeline';
 
 export const Editor: React.FC = () => {
   const [draft, setDraft] = useState<BugReport | null>(null);
@@ -730,6 +731,7 @@ export const Editor: React.FC = () => {
               </p>
             </section>
           )}
+          {draft?.debugSession && !isDiscarded && <DebugTimeline session={draft.debugSession} />}
           {/* No Draft ID State: Shows guidance and displays ReportManagement below */}
           {!isLoading && !draftId && !errorMessage && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
