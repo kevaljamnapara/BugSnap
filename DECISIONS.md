@@ -25,6 +25,8 @@ Record approved product and technical decisions here. Do not treat recommendatio
 | D-017 | Extension build tooling: Selected `@crxjs/vite-plugin` (v3.0.0). Rationale: minimal dependency footprint, robust Manifest V3 module bundling, seamless HTML entry point resolution, and direct compatibility with Vitest. | Confirmed |
 | D-018 | Tab metadata collection: Collect tab URL, title, capture timestamp, and visible viewport dimensions (width × height from active tab) where accessible via activeTab; omit unavailable fields without fabricating fallback values. | Confirmed |
 | D-019 | Local draft storage implementation: Native browser IndexedDB ('bugsnap_db') with object store 'reports' keyed by stable draft ID. Debounced autosave (400ms) with visible Saving/Saved/Error indicators and form preservation during storage errors. | Confirmed |
+| D-020 | Screenshot annotation architecture: Lightweight custom SVG overlay and offscreen Canvas 2D composite renderer without external heavyweight drawing libraries. Preserves original unannotated screenshot in storage; coordinates mapped between display dimensions and natural image resolution; non-destructive vector annotations stored alongside composite image. | Confirmed |
+| D-021 | Multi-file export workflow: Separate downloads for Markdown report (.md) and screenshot (.png) triggered via native DOM Blob Object URLs and simulated <a download> click. Zero Chrome downloads permission requested. Object URLs revoked after 1.5s timeout. User is informed regarding possible browser multi-download permission prompts. | Confirmed |
 
 ## Open decisions
 
@@ -37,7 +39,7 @@ Record approved product and technical decisions here. Do not treat recommendatio
 | O-005 | Which screenshot format is required? | PNG initially (exported separately via native Blob links per D-014/D-015) | Proposed |
 | O-006 | How should capture data reach the editor? | Resolved by D-013: IndexedDB draft record with stable draft ID passed to editor URL (`editor.html?id=<draftId>`) | Resolved (D-013) |
 | O-007 | Which local storage design should be used? | Resolved by D-019: Native browser IndexedDB ('bugsnap_db') for report records and screenshots | Resolved (D-019) |
-| O-008 | How should annotation be implemented? | Compare maintained library versus small custom implementation | Architecture review |
+| O-008 | How should annotation be implemented? | Resolved by D-020: Custom lightweight SVG overlay and Canvas 2D renderer | Resolved (D-020) |
 | O-009 | Which metadata is reliably available? | Resolved by D-018: URL, title, captured timestamp, and viewport dimensions via activeTab; omit unavailable | Resolved (D-018) |
 | O-010 | Which minimum browser versions are supported? | Decide after API and compatibility review | Open |
 

@@ -1,8 +1,10 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import './Editor.css';
 import { APP_NAME, SEVERITY_LEVELS } from '../shared/constants';
-import { BugReport, Severity } from '../shared/types';
+import { BugReport, Severity, Annotation } from '../shared/types';
 import { getReport, saveReport, deleteReport } from '../shared/storage';
+import { AnnotationCanvas } from './AnnotationCanvas';
+import { exportReportPackage } from './exportUtils';
 
 export const Editor: React.FC = () => {
   const [draft, setDraft] = useState<BugReport | null>(null);
@@ -18,6 +20,12 @@ export const Editor: React.FC = () => {
   const [actualBehavior, setActualBehavior] = useState<string>('');
   const [additionalNotes, setAdditionalNotes] = useState<string>('');
 
+  // Annotation State
+  const [annotations, setAnnotations] = useState<Annotation[]>([]);
+  const [annotatedScreenshotDataUrl, setAnnotatedScreenshotDataUrl] = useState<string | undefined>(
+    undefined,
+  );
+
   // Form Validation State
   const [titleTouched, setTitleTouched] = useState<boolean>(false);
 
@@ -26,6 +34,11 @@ export const Editor: React.FC = () => {
   const [saveError, setSaveError] = useState<string | null>(null);
   const isDirtyRef = useRef<boolean>(false);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Export State
+  const [isExporting, setIsExporting] = useState<boolean>(false);
+  const [exportSuccessMessage, setExportSuccessMessage] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   // Discard Draft State
   const [showDiscardModal, setShowDiscardModal] = useState<boolean>(false);
@@ -59,6 +72,8 @@ export const Editor: React.FC = () => {
           setExpectedBehavior(loaded.expectedBehavior || '');
           setActualBehavior(loaded.actualBehavior || '');
           setAdditionalNotes(loaded.additionalNotes || '');
+          setAnnotations(loaded.annotations || []);
+          setAnnotatedScreenshotDataUrl(loaded.annotatedScreenshotDataUrl);
           setSaveStatus('saved');
         } else {
           setErrorMessage(`Draft with ID "${id}" was not found in local storage.`);
@@ -91,15 +106,26 @@ export const Editor: React.FC = () => {
       expectedBehavior: string;
       actualBehavior: string;
       additionalNotes: string;
+      annotations?: Annotation[];
+      annotatedScreenshotDataUrl?: string;
     }) => {
       if (!draft) return;
 
       setSaveStatus('saving');
       setSaveError(null);
 
+      const nextAnnotations =
+        updatedFields.annotations !== undefined ? updatedFields.annotations : annotations;
+      const nextAnnotatedScreenshot =
+        updatedFields.annotatedScreenshotDataUrl !== undefined
+          ? updatedFields.annotatedScreenshotDataUrl
+          : annotatedScreenshotDataUrl;
+
       const updatedReport: BugReport = {
         ...draft,
         ...updatedFields,
+        annotations: nextAnnotations,
+        annotatedScreenshotDataUrl: nextAnnotatedScreenshot,
         updatedAt: new Date().toISOString(),
       };
 
@@ -114,10 +140,10 @@ export const Editor: React.FC = () => {
         );
       }
     },
-    [draft],
+    [draft, annotations, annotatedScreenshotDataUrl],
   );
 
-  // Debounced Autosave Trigger
+  // Debounced Autosave Trigger for form fields
   const handleFieldChange = (
     field: 'title' | 'severity' | 'reproductionSteps' | 'expectedBehavior' | 'actualBehavior' | 'additionalNotes',
     value: string,
@@ -147,7 +173,11 @@ export const Editor: React.FC = () => {
     }
 
     debounceTimerRef.current = setTimeout(() => {
-      triggerSave(newValues);
+      triggerSave({
+        ...newValues,
+        annotations,
+        annotatedScreenshotDataUrl,
+      });
     }, 400);
   };
 
@@ -164,8 +194,47 @@ export const Editor: React.FC = () => {
         expectedBehavior,
         actualBehavior,
         additionalNotes,
+        annotations,
+        annotatedScreenshotDataUrl,
       });
       isDirtyRef.current = false;
+    }
+  };
+
+  // Immediate Autosave on Annotation change
+  const handleAnnotationsChange = (newAnnotations: Annotation[]) => {
+    setAnnotations(newAnnotations);
+    isDirtyRef.current = true;
+    setSaveStatus('saving');
+
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    debounceTimerRef.current = setTimeout(() => {
+      triggerSave({
+        title,
+        severity,
+        reproductionSteps,
+        expectedBehavior,
+        actualBehavior,
+        additionalNotes,
+        annotations: newAnnotations,
+        annotatedScreenshotDataUrl,
+      });
+    }, 400);
+  };
+
+  // Composite rendered callback from AnnotationCanvas
+  const handleCompositeRendered = (compositeDataUrl: string) => {
+    setAnnotatedScreenshotDataUrl(compositeDataUrl);
+    if (draft && compositeDataUrl !== draft.annotatedScreenshotDataUrl) {
+      const updatedReport: BugReport = {
+        ...draft,
+        annotatedScreenshotDataUrl: compositeDataUrl,
+        updatedAt: new Date().toISOString(),
+      };
+      saveReport(updatedReport).catch(() => {});
     }
   };
 
@@ -178,7 +247,41 @@ export const Editor: React.FC = () => {
       expectedBehavior,
       actualBehavior,
       additionalNotes,
+      annotations,
+      annotatedScreenshotDataUrl,
     });
+  };
+
+  // Export Report Flow
+  const handleExport = async () => {
+    if (!draft) return;
+
+    setIsExporting(true);
+    setExportError(null);
+    setExportSuccessMessage(null);
+
+    const reportToExport: BugReport = {
+      ...draft,
+      title: title.trim(),
+      severity,
+      reproductionSteps,
+      expectedBehavior,
+      actualBehavior,
+      additionalNotes,
+      annotations,
+      annotatedScreenshotDataUrl,
+    };
+
+    const result = await exportReportPackage(reportToExport);
+
+    setIsExporting(false);
+    if (result.success) {
+      setExportSuccessMessage(
+        `Report files exported successfully (${result.filenameStem}). If prompted by the browser, please allow multiple file downloads.`,
+      );
+    } else {
+      setExportError(result.error || 'Failed to export report package.');
+    }
   };
 
   // Discard Draft Flow
@@ -248,6 +351,20 @@ export const Editor: React.FC = () => {
               Discard Draft
             </button>
           )}
+
+          {/* Export Report Button */}
+          {draft && !isDiscarded && (
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={handleExport}
+              disabled={isExporting}
+              data-testid="export-report-btn"
+              title="Download Markdown report and screenshot evidence"
+            >
+              {isExporting ? 'Exporting...' : 'Export Report'}
+            </button>
+          )}
         </div>
       </header>
 
@@ -287,6 +404,24 @@ export const Editor: React.FC = () => {
                 {isDiscarding ? 'Deleting...' : 'Discard and Delete'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Export Success Alert */}
+      {exportSuccessMessage && (
+        <div className="editor-alert editor-alert-success" data-testid="export-success-alert">
+          <div>
+            <strong>Export Complete:</strong> {exportSuccessMessage}
+          </div>
+        </div>
+      )}
+
+      {/* Export Error Alert */}
+      {exportError && (
+        <div className="editor-alert editor-alert-error" data-testid="export-error-alert">
+          <div>
+            <strong>Export Error:</strong> {exportError}
           </div>
         </div>
       )}
@@ -481,19 +616,17 @@ export const Editor: React.FC = () => {
 
           {/* Right Column: Evidence & Metadata */}
           <div className="evidence-column">
-            {/* Screenshot Preview */}
+            {/* Visual Evidence & Annotation Canvas */}
             <section className="editor-card" data-testid="screenshot-card">
-              <h2>Visual Evidence</h2>
+              <h2>Visual Evidence & Annotations</h2>
               {draft.screenshotDataUrl ? (
                 <div className="screenshot-preview-container">
-                  <div className="screenshot-wrapper">
-                    <img
-                      src={draft.screenshotDataUrl}
-                      alt="Captured defect evidence"
-                      className="screenshot-image"
-                      data-testid="screenshot-img"
-                    />
-                  </div>
+                  <AnnotationCanvas
+                    imageSrc={draft.screenshotDataUrl}
+                    annotations={annotations}
+                    onAnnotationsChange={handleAnnotationsChange}
+                    onCompositeRendered={handleCompositeRendered}
+                  />
                   <div className="screenshot-footer">
                     <span>Captured tab viewport</span>
                     {draft.metadata.viewport && (

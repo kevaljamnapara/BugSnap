@@ -43,13 +43,13 @@
 **Exit criteria:** Report data survives normal browser restarts, draft recovery functions reliably, and management flows pass.
 
 ## Phase 4 — Screenshot annotation and export
-- [ ] Add rectangle, arrow, and text annotations.
-- [ ] Verify annotation scaling and export fidelity.
-- [ ] Generate Markdown following the canonical report template with matching, sanitized filename stems.
-- [ ] Safely format and escape user-entered Markdown content where necessary.
-- [ ] Download Markdown and screenshot as separate files via browser-native Blob URLs (`<a download>`) without requiring the Chrome `downloads` permission.
-- [ ] Handle and document browser multiple-download permission prompts.
-- [ ] Handle export errors.
+- [x] Add rectangle, arrow, and text annotations.
+- [x] Verify annotation scaling and export fidelity.
+- [x] Generate Markdown following the canonical report template with matching, sanitized filename stems.
+- [x] Safely format and escape user-entered Markdown content where necessary.
+- [x] Download Markdown and screenshot as separate files via browser-native Blob URLs (`<a download>`) without requiring the Chrome `downloads` permission.
+- [x] Handle and document browser multiple-download permission prompts.
+- [x] Handle export errors.
 
 **Exit criteria:** Exported Markdown and screenshot are usable together with matching filenames and zero extra permissions.
 

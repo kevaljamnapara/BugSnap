@@ -252,4 +252,137 @@ describe('Editor Component — Phase 3 Features', () => {
       expect(screen.getByTestId('discard-modal')).toBeInTheDocument();
     });
   });
+
+  describe('Phase 4 — Annotations and Markdown Export', () => {
+    const mockDraftWithAnnotations: BugReport = {
+      ...mockDraft,
+      id: 'draft-phase4-202',
+      annotations: [
+        {
+          id: 'annot-rect-1',
+          type: 'rectangle',
+          x: 20,
+          y: 30,
+          width: 120,
+          height: 60,
+          color: '#ef4444',
+          strokeWidth: 4,
+        },
+        {
+          id: 'annot-text-1',
+          type: 'text',
+          x: 40,
+          y: 70,
+          text: 'Misaligned logo',
+          color: '#38bdf8',
+          fontSize: 18,
+        },
+      ],
+      annotatedScreenshotDataUrl: 'data:image/png;base64,mockAnnotatedComposite',
+    };
+
+    it('restores draft with annotations and displays them in AnnotationCanvas', async () => {
+      await storage.saveReport(mockDraftWithAnnotations);
+      window.history.pushState({}, '', `/editor.html?id=${mockDraftWithAnnotations.id}`);
+
+      render(<Editor />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('annotation-container')).toBeInTheDocument();
+      });
+
+      // SVG overlay renders the restored text annotation
+      expect(screen.getByText('Misaligned logo')).toBeInTheDocument();
+      expect(screen.getByTestId('tool-btn-undo')).not.toBeDisabled();
+      expect(screen.getByTestId('tool-btn-clear')).not.toBeDisabled();
+    });
+
+    it('preserves the original unannotated screenshot in storage when annotations are cleared', async () => {
+      await storage.saveReport(mockDraftWithAnnotations);
+      window.history.pushState({}, '', `/editor.html?id=${mockDraftWithAnnotations.id}`);
+
+      render(<Editor />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('tool-btn-clear')).toBeInTheDocument();
+      });
+
+      // Click Clear All
+      fireEvent.click(screen.getByTestId('tool-btn-clear'));
+      fireEvent.click(screen.getByTestId('confirm-clear-btn'));
+
+      // Wait for autosave to complete
+      await waitFor(() => {
+        expect(screen.getByTestId('save-status')).toHaveTextContent('Saved locally');
+      });
+
+      const updated = await storage.getReport(mockDraftWithAnnotations.id);
+      expect(updated?.annotations).toEqual([]);
+      // Crucial: original screenshot is never lost or overwritten
+      expect(updated?.screenshotDataUrl).toBe(mockDraft.screenshotDataUrl);
+    });
+
+    it('triggers report export package and shows export success banner', async () => {
+      // Mock downloads
+      if (!window.URL.createObjectURL) {
+        window.URL.createObjectURL = vi.fn().mockReturnValue('blob:mock-url');
+      } else {
+        vi.spyOn(window.URL, 'createObjectURL').mockReturnValue('blob:mock-url');
+      }
+      if (!window.URL.revokeObjectURL) {
+        window.URL.revokeObjectURL = vi.fn();
+      } else {
+        vi.spyOn(window.URL, 'revokeObjectURL').mockImplementation(() => {});
+      }
+      const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+
+      await storage.saveReport(mockDraft);
+      window.history.pushState({}, '', `/editor.html?id=${mockDraft.id}`);
+
+      render(<Editor />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('export-report-btn')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByTestId('export-report-btn'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('export-success-alert')).toBeInTheDocument();
+      });
+
+      expect(screen.getByText(/Report files exported successfully/i)).toBeInTheDocument();
+      expect(clickSpy).toHaveBeenCalled();
+    });
+
+    it('shows export error banner when export encounters a failure', async () => {
+      // Force URL.createObjectURL failure
+      if (!window.URL.createObjectURL) {
+        window.URL.createObjectURL = vi.fn().mockImplementation(() => {
+          throw new Error('Disk write error');
+        });
+      } else {
+        vi.spyOn(window.URL, 'createObjectURL').mockImplementation(() => {
+          throw new Error('Disk write error');
+        });
+      }
+
+      await storage.saveReport(mockDraft);
+      window.history.pushState({}, '', `/editor.html?id=${mockDraft.id}`);
+
+      render(<Editor />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('export-report-btn')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByTestId('export-report-btn'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('export-error-alert')).toBeInTheDocument();
+      });
+
+      expect(screen.getByText(/Export Error:/i)).toBeInTheDocument();
+    });
+  });
 });
