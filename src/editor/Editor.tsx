@@ -23,6 +23,7 @@ import { DebugTimeline } from './DebugTimeline';
 import { ReproductionStepsRecorder } from './ReproductionStepsRecorder';
 import { EnvironmentDiagnostics } from './EnvironmentDiagnostics';
 import { EvidenceReview } from './EvidenceReview';
+import { generateAiDebugPrompt } from '../shared/aiPrompt';
 
 export const Editor: React.FC = () => {
   const [draft, setDraft] = useState<BugReport | null>(null);
@@ -490,6 +491,12 @@ export const Editor: React.FC = () => {
     setDraft(updated);
   };
 
+  const handleCopyAiPrompt = async () => {
+    if (!draft || !navigator.clipboard?.writeText) return setCopyError('Clipboard prompt copy is unavailable in this browser.');
+    await navigator.clipboard.writeText(generateAiDebugPrompt({ ...draft, title, severity, reproductionSteps, expectedBehavior, actualBehavior, additionalNotes }));
+    setCopyFeedback('Detailed AI-ready debugging prompt copied locally.');
+  };
+
   const isTitleEmpty = title.trim().length === 0;
 
   return (
@@ -516,6 +523,7 @@ export const Editor: React.FC = () => {
               </span>
             </div>
           )}
+          {draft && !isDiscarded && viewMode === 'editor' && <button type="button" className="btn btn-secondary btn-sm" onClick={handleCopyAiPrompt}>Copy AI Prompt</button>}
 
           {/* Manage Reports & Settings Toggle */}
           <button
