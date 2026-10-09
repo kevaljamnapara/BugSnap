@@ -54,12 +54,12 @@
 **Exit criteria:** Exported Markdown and screenshot are usable together with matching filenames and zero extra permissions.
 
 ## Phase 5 — Automatic cleanup and privacy
-- [ ] Implement only the approved cleanup policy.
-- [ ] Apply retention policy consistently to eligible saved reports and abandoned drafts.
-- [ ] Protect reports currently being edited from automatic cleanup.
-- [ ] Ensure cleanup is optional and clearly disclosed.
-- [ ] Audit permissions to confirm the Chrome `downloads` permission and broad host permissions are absent.
-- [ ] Verify no report data is sent externally by default.
+- [x] Implement only the approved cleanup policy.
+- [x] Apply retention policy consistently to eligible saved reports and abandoned drafts.
+- [x] Protect reports currently being edited from automatic cleanup.
+- [x] Ensure cleanup is optional and clearly disclosed.
+- [x] Audit permissions to confirm the Chrome `downloads` permission and broad host permissions are absent.
+- [x] Verify no report data is sent externally by default.
 
 **Exit criteria:** Cleanup and privacy tests pass.
 

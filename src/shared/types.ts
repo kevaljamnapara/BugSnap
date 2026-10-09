@@ -67,3 +67,27 @@ export interface BugReport {
   createdAt: string;
   updatedAt: string;
 }
+
+export type RetentionPeriod = 7 | 30 | 90;
+
+export interface RetentionSettings {
+  enabled: boolean;
+  retentionDays: RetentionPeriod;
+}
+
+export interface ActiveEditLock {
+  reportId: string;
+  sessionId: string;
+  lastHeartbeat: number;
+}
+
+export interface CleanupResult {
+  success: boolean;
+  enabled: boolean;
+  retentionDays: RetentionPeriod;
+  cutoffTimestamp: number;
+  cleanedCount: number;
+  skippedLockedCount: number;
+  deletedIds: string[];
+  errors: string[];
+}

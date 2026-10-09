@@ -1,16 +1,32 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import './Editor.css';
-import { APP_NAME, SEVERITY_LEVELS } from '../shared/constants';
+import { APP_NAME, SEVERITY_LEVELS, EDIT_LOCK_HEARTBEAT_INTERVAL_MS } from '../shared/constants';
 import { BugReport, Severity, Annotation } from '../shared/types';
-import { getReport, saveReport, deleteReport } from '../shared/storage';
+import {
+  getReport,
+  saveReport,
+  deleteReport,
+  acquireEditLock,
+  renewEditLock,
+  releaseEditLock,
+} from '../shared/storage';
 import { AnnotationCanvas } from './AnnotationCanvas';
 import { exportReportPackage } from './exportUtils';
+import { ReportManagement } from './ReportManagement';
 
 export const Editor: React.FC = () => {
   const [draft, setDraft] = useState<BugReport | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [draftId, setDraftId] = useState<string | null>(null);
+
+  // View Mode: Active Report Editor vs Report Management / Settings
+  const [viewMode, setViewMode] = useState<'editor' | 'management'>('editor');
+
+  // Active Edit Session Lock State
+  const sessionIdRef = useRef<string>(
+    `session-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+  );
 
   // Form Fields State
   const [title, setTitle] = useState<string>('');
@@ -46,56 +62,70 @@ export const Editor: React.FC = () => {
   const [discardError, setDiscardError] = useState<string | null>(null);
   const [isDiscarded, setIsDiscarded] = useState<boolean>(false);
 
-  // Load Draft by ID on mount
+  // Load Draft by ID function
+  const loadDraft = useCallback(async (id: string) => {
+    setIsLoading(true);
+    setErrorMessage(null);
+    try {
+      const loaded = await getReport(id);
+      if (loaded) {
+        setDraft(loaded);
+        setTitle(loaded.title || '');
+        setSeverity(loaded.severity || 'Medium');
+        setReproductionSteps(loaded.reproductionSteps || '');
+        setExpectedBehavior(loaded.expectedBehavior || '');
+        setActualBehavior(loaded.actualBehavior || '');
+        setAdditionalNotes(loaded.additionalNotes || '');
+        setAnnotations(loaded.annotations || []);
+        setAnnotatedScreenshotDataUrl(loaded.annotatedScreenshotDataUrl);
+        setSaveStatus('saved');
+      } else {
+        setErrorMessage(`Draft with ID "${id}" was not found in local storage.`);
+      }
+    } catch (err) {
+      setErrorMessage(
+        `Failed to load draft: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Check query params on mount
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const id = params.get('id');
     setDraftId(id);
 
-    if (!id) {
+    if (id) {
+      loadDraft(id);
+    } else {
       setIsLoading(false);
-      return;
     }
+  }, [loadDraft]);
 
-    let isMounted = true;
+  // Maintain active edit session lock and renew heartbeat while editor is open
+  useEffect(() => {
+    if (!draftId) return;
 
-    async function loadDraft() {
-      try {
-        const loaded = await getReport(id!);
-        if (!isMounted) return;
+    const currentSessionId = sessionIdRef.current;
+    acquireEditLock(draftId, currentSessionId).catch(() => {});
 
-        if (loaded) {
-          setDraft(loaded);
-          setTitle(loaded.title || '');
-          setSeverity(loaded.severity || 'Medium');
-          setReproductionSteps(loaded.reproductionSteps || '');
-          setExpectedBehavior(loaded.expectedBehavior || '');
-          setActualBehavior(loaded.actualBehavior || '');
-          setAdditionalNotes(loaded.additionalNotes || '');
-          setAnnotations(loaded.annotations || []);
-          setAnnotatedScreenshotDataUrl(loaded.annotatedScreenshotDataUrl);
-          setSaveStatus('saved');
-        } else {
-          setErrorMessage(`Draft with ID "${id}" was not found in local storage.`);
-        }
-      } catch (err) {
-        if (!isMounted) return;
-        setErrorMessage(
-          `Failed to load draft: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
-    }
+    const heartbeatTimer = setInterval(() => {
+      renewEditLock(draftId, currentSessionId).catch(() => {});
+    }, EDIT_LOCK_HEARTBEAT_INTERVAL_MS);
 
-    loadDraft();
+    const handleBeforeUnload = () => {
+      releaseEditLock(currentSessionId).catch(() => {});
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
 
     return () => {
-      isMounted = false;
+      clearInterval(heartbeatTimer);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      releaseEditLock(currentSessionId).catch(() => {});
     };
-  }, []);
+  }, [draftId]);
 
   // Autosave Function
   const triggerSave = useCallback(
@@ -302,6 +332,7 @@ export const Editor: React.FC = () => {
 
     try {
       await deleteReport(draftId);
+      releaseEditLock(sessionIdRef.current).catch(() => {});
       setIsDiscarded(true);
       setShowDiscardModal(false);
     } catch (err) {
@@ -311,6 +342,15 @@ export const Editor: React.FC = () => {
     } finally {
       setIsDiscarding(false);
     }
+  };
+
+  // Open a report chosen from ReportManagement
+  const handleOpenReportFromManagement = (reportId: string) => {
+    window.history.pushState({}, '', `?id=${reportId}`);
+    setDraftId(reportId);
+    setViewMode('editor');
+    setIsDiscarded(false);
+    loadDraft(reportId);
   };
 
   const isTitleEmpty = title.trim().length === 0;
@@ -329,7 +369,7 @@ export const Editor: React.FC = () => {
 
         <div className="header-actions">
           {/* Autosave Status Indicator */}
-          {draft && !isDiscarded && (
+          {draft && !isDiscarded && viewMode === 'editor' && (
             <div className="save-status-container" data-testid="save-status">
               <span className={`status-dot status-dot-${saveStatus}`} />
               <span className={`status-text ${saveStatus === 'error' ? 'status-text-error' : ''}`}>
@@ -340,8 +380,18 @@ export const Editor: React.FC = () => {
             </div>
           )}
 
+          {/* Manage Reports & Settings Toggle */}
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={() => setViewMode(viewMode === 'editor' ? 'management' : 'editor')}
+            data-testid="manage-reports-btn"
+          >
+            {viewMode === 'editor' ? 'Manage Reports & Settings' : '← Back to Editor'}
+          </button>
+
           {/* Discard Draft Button */}
-          {draft && !isDiscarded && (
+          {draft && !isDiscarded && viewMode === 'editor' && (
             <button
               type="button"
               className="btn btn-danger-outline btn-sm"
@@ -353,7 +403,7 @@ export const Editor: React.FC = () => {
           )}
 
           {/* Export Report Button */}
-          {draft && !isDiscarded && (
+          {draft && !isDiscarded && viewMode === 'editor' && (
             <button
               type="button"
               className="btn btn-primary btn-sm"
@@ -470,232 +520,249 @@ export const Editor: React.FC = () => {
         </div>
       )}
 
-      {/* No Draft ID State */}
-      {!isLoading && !draftId && !errorMessage && (
-        <div className="editor-alert editor-alert-info" data-testid="editor-empty">
-          <strong>No report draft selected.</strong>
-          <p style={{ margin: '8px 0 0 0' }}>
-            Open the BugSnap extension popup on any webpage and click &quot;Capture Bug&quot;
-            to capture a new defect report.
-          </p>
-        </div>
+      {/* View Mode: Report Management & Retention Settings */}
+      {viewMode === 'management' && (
+        <ReportManagement
+          onOpenReport={handleOpenReportFromManagement}
+          currentReportId={draftId}
+          onBackToEditor={draftId ? () => setViewMode('editor') : undefined}
+        />
       )}
 
-      {/* Main Editor Form & Evidence Grid */}
-      {!isLoading && draft && !isDiscarded && (
-        <main className="editor-grid">
-          {/* Left Column: Form Fields */}
-          <section className="editor-card" data-testid="editor-form-card">
-            <h2>Defect Details</h2>
-
-            {/* Bug Title (Required) */}
-            <div className="form-group">
-              <label htmlFor="report-title" className="form-label">
-                Bug Title <span className="form-required">*</span>
-              </label>
-              <input
-                id="report-title"
-                name="title"
-                type="text"
-                className={`form-input ${titleTouched && isTitleEmpty ? 'form-input-error' : ''}`}
-                placeholder="e.g. Checkout button misaligned on mobile viewport"
-                value={title}
-                onChange={(e) => handleFieldChange('title', e.target.value)}
-                onBlur={() => {
-                  setTitleTouched(true);
-                  handleFieldBlur();
-                }}
-                data-testid="input-title"
-                aria-required="true"
-                aria-invalid={titleTouched && isTitleEmpty}
-              />
-              {titleTouched && isTitleEmpty && (
-                <span className="field-error-text" data-testid="title-error">
-                  Bug title is required.
-                </span>
-              )}
-            </div>
-
-            {/* Severity Selector */}
-            <div className="form-group">
-              <label className="form-label">Severity Level</label>
-              <div
-                className="severity-selector"
-                role="radiogroup"
-                aria-label="Severity Level"
-                data-testid="severity-selector"
-              >
-                {SEVERITY_LEVELS.map((level) => (
-                  <button
-                    key={level}
-                    type="button"
-                    role="radio"
-                    aria-checked={severity === level}
-                    className={`severity-pill ${severity === level ? `severity-pill-active-${level}` : ''}`}
-                    onClick={() => handleFieldChange('severity', level)}
-                    data-testid={`severity-pill-${level}`}
-                  >
-                    {level}
-                  </button>
-                ))}
+      {/* View Mode: Editor */}
+      {viewMode === 'editor' && (
+        <>
+          {/* No Draft ID State: Shows guidance and displays ReportManagement below */}
+          {!isLoading && !draftId && !errorMessage && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              <div className="editor-alert editor-alert-info" data-testid="editor-empty">
+                <strong>No report draft selected.</strong>
+                <p style={{ margin: '8px 0 0 0' }}>
+                  Open the BugSnap extension popup on any webpage and click &quot;Capture Bug&quot;
+                  to capture a new defect report, or manage existing reports and retention settings below.
+                </p>
               </div>
+              <ReportManagement onOpenReport={handleOpenReportFromManagement} />
             </div>
+          )}
 
-            {/* Reproduction Steps */}
-            <div className="form-group">
-              <label htmlFor="report-steps" className="form-label">
-                Reproduction Steps
-              </label>
-              <textarea
-                id="report-steps"
-                name="reproductionSteps"
-                className="form-textarea"
-                rows={4}
-                placeholder={'1. Navigate to /checkout\n2. Select standard shipping\n3. Click Place Order button'}
-                value={reproductionSteps}
-                onChange={(e) => handleFieldChange('reproductionSteps', e.target.value)}
-                onBlur={handleFieldBlur}
-                data-testid="input-steps"
-              />
-            </div>
+          {/* Main Editor Form & Evidence Grid */}
+          {!isLoading && draft && !isDiscarded && (
+            <main className="editor-grid">
+              {/* Left Column: Form Fields */}
+              <section className="editor-card" data-testid="editor-form-card">
+                <h2>Defect Details</h2>
 
-            {/* Expected Behavior */}
-            <div className="form-group">
-              <label htmlFor="report-expected" className="form-label">
-                Expected Behavior
-              </label>
-              <textarea
-                id="report-expected"
-                name="expectedBehavior"
-                className="form-textarea"
-                rows={3}
-                placeholder="Describe what should have happened..."
-                value={expectedBehavior}
-                onChange={(e) => handleFieldChange('expectedBehavior', e.target.value)}
-                onBlur={handleFieldBlur}
-                data-testid="input-expected"
-              />
-            </div>
-
-            {/* Actual Behavior */}
-            <div className="form-group">
-              <label htmlFor="report-actual" className="form-label">
-                Actual Behavior
-              </label>
-              <textarea
-                id="report-actual"
-                name="actualBehavior"
-                className="form-textarea"
-                rows={3}
-                placeholder="Describe what actually happened..."
-                value={actualBehavior}
-                onChange={(e) => handleFieldChange('actualBehavior', e.target.value)}
-                onBlur={handleFieldBlur}
-                data-testid="input-actual"
-              />
-            </div>
-
-            {/* Additional Notes */}
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label htmlFor="report-notes" className="form-label">
-                Additional Notes
-              </label>
-              <textarea
-                id="report-notes"
-                name="additionalNotes"
-                className="form-textarea"
-                rows={3}
-                placeholder="Console errors, device orientation, test credentials used..."
-                value={additionalNotes}
-                onChange={(e) => handleFieldChange('additionalNotes', e.target.value)}
-                onBlur={handleFieldBlur}
-                data-testid="input-notes"
-              />
-            </div>
-          </section>
-
-          {/* Right Column: Evidence & Metadata */}
-          <div className="evidence-column">
-            {/* Visual Evidence & Annotation Canvas */}
-            <section className="editor-card" data-testid="screenshot-card">
-              <h2>Visual Evidence & Annotations</h2>
-              {draft.screenshotDataUrl ? (
-                <div className="screenshot-preview-container">
-                  <AnnotationCanvas
-                    imageSrc={draft.screenshotDataUrl}
-                    annotations={annotations}
-                    onAnnotationsChange={handleAnnotationsChange}
-                    onCompositeRendered={handleCompositeRendered}
+                {/* Bug Title (Required) */}
+                <div className="form-group">
+                  <label htmlFor="report-title" className="form-label">
+                    Bug Title <span className="form-required">*</span>
+                  </label>
+                  <input
+                    id="report-title"
+                    name="title"
+                    type="text"
+                    className={`form-input ${titleTouched && isTitleEmpty ? 'form-input-error' : ''}`}
+                    placeholder="e.g. Checkout button misaligned on mobile viewport"
+                    value={title}
+                    onChange={(e) => handleFieldChange('title', e.target.value)}
+                    onBlur={() => {
+                      setTitleTouched(true);
+                      handleFieldBlur();
+                    }}
+                    data-testid="input-title"
+                    aria-required="true"
+                    aria-invalid={titleTouched && isTitleEmpty}
                   />
-                  <div className="screenshot-footer">
-                    <span>Captured tab viewport</span>
-                    {draft.metadata.viewport && (
-                      <span>
-                        {draft.metadata.viewport.width} × {draft.metadata.viewport.height} px
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <p style={{ color: 'var(--text-muted)' }}>No screenshot image available.</p>
-              )}
-            </section>
-
-            {/* Page Metadata */}
-            <section className="editor-card" data-testid="metadata-card">
-              <h2>Page Context</h2>
-              <div className="metadata-grid">
-                <div className="metadata-item">
-                  <span className="metadata-label">Page Title</span>
-                  <span className="metadata-value" data-testid="meta-title">
-                    {draft.metadata.title || 'Untitled page'}
-                  </span>
-                </div>
-
-                <div className="metadata-item">
-                  <span className="metadata-label">Page URL</span>
-                  <span className="metadata-value" data-testid="meta-url">
-                    {draft.metadata.url ? (
-                      <a
-                        href={draft.metadata.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="metadata-link"
-                      >
-                        {draft.metadata.url}
-                      </a>
-                    ) : (
-                      'Unavailable'
-                    )}
-                  </span>
-                </div>
-
-                <div className="metadata-item">
-                  <span className="metadata-label">Captured At</span>
-                  <span className="metadata-value" data-testid="meta-captured-at">
-                    {new Date(draft.metadata.capturedAt).toLocaleString()}
-                  </span>
-                </div>
-
-                {draft.metadata.viewport && (
-                  <div className="metadata-item" data-testid="meta-viewport">
-                    <span className="metadata-label">Viewport</span>
-                    <span className="metadata-value">
-                      {draft.metadata.viewport.width} × {draft.metadata.viewport.height} px
+                  {titleTouched && isTitleEmpty && (
+                    <span className="field-error-text" data-testid="title-error">
+                      Bug title is required.
                     </span>
-                  </div>
-                )}
+                  )}
+                </div>
 
-                {draft.metadata.platform && (
-                  <div className="metadata-item" data-testid="meta-platform">
-                    <span className="metadata-label">Platform</span>
-                    <span className="metadata-value">{draft.metadata.platform}</span>
+                {/* Severity Selector */}
+                <div className="form-group">
+                  <label className="form-label">Severity Level</label>
+                  <div
+                    className="severity-selector"
+                    role="radiogroup"
+                    aria-label="Severity Level"
+                    data-testid="severity-selector"
+                  >
+                    {SEVERITY_LEVELS.map((level) => (
+                      <button
+                        key={level}
+                        type="button"
+                        role="radio"
+                        aria-checked={severity === level}
+                        className={`severity-pill ${severity === level ? `severity-pill-active-${level}` : ''}`}
+                        onClick={() => handleFieldChange('severity', level)}
+                        data-testid={`severity-pill-${level}`}
+                      >
+                        {level}
+                      </button>
+                    ))}
                   </div>
-                )}
+                </div>
+
+                {/* Reproduction Steps */}
+                <div className="form-group">
+                  <label htmlFor="report-steps" className="form-label">
+                    Reproduction Steps
+                  </label>
+                  <textarea
+                    id="report-steps"
+                    name="reproductionSteps"
+                    className="form-textarea"
+                    rows={4}
+                    placeholder={'1. Navigate to /checkout\n2. Select standard shipping\n3. Click Place Order button'}
+                    value={reproductionSteps}
+                    onChange={(e) => handleFieldChange('reproductionSteps', e.target.value)}
+                    onBlur={handleFieldBlur}
+                    data-testid="input-steps"
+                  />
+                </div>
+
+                {/* Expected Behavior */}
+                <div className="form-group">
+                  <label htmlFor="report-expected" className="form-label">
+                    Expected Behavior
+                  </label>
+                  <textarea
+                    id="report-expected"
+                    name="expectedBehavior"
+                    className="form-textarea"
+                    rows={3}
+                    placeholder="Describe what should have happened..."
+                    value={expectedBehavior}
+                    onChange={(e) => handleFieldChange('expectedBehavior', e.target.value)}
+                    onBlur={handleFieldBlur}
+                    data-testid="input-expected"
+                  />
+                </div>
+
+                {/* Actual Behavior */}
+                <div className="form-group">
+                  <label htmlFor="report-actual" className="form-label">
+                    Actual Behavior
+                  </label>
+                  <textarea
+                    id="report-actual"
+                    name="actualBehavior"
+                    className="form-textarea"
+                    rows={3}
+                    placeholder="Describe what actually happened..."
+                    value={actualBehavior}
+                    onChange={(e) => handleFieldChange('actualBehavior', e.target.value)}
+                    onBlur={handleFieldBlur}
+                    data-testid="input-actual"
+                  />
+                </div>
+
+                {/* Additional Notes */}
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label htmlFor="report-notes" className="form-label">
+                    Additional Notes
+                  </label>
+                  <textarea
+                    id="report-notes"
+                    name="additionalNotes"
+                    className="form-textarea"
+                    rows={3}
+                    placeholder="Console errors, device orientation, test credentials used..."
+                    value={additionalNotes}
+                    onChange={(e) => handleFieldChange('additionalNotes', e.target.value)}
+                    onBlur={handleFieldBlur}
+                    data-testid="input-notes"
+                  />
+                </div>
+              </section>
+
+              {/* Right Column: Evidence & Metadata */}
+              <div className="evidence-column">
+                {/* Visual Evidence & Annotation Canvas */}
+                <section className="editor-card" data-testid="screenshot-card">
+                  <h2>Visual Evidence & Annotations</h2>
+                  {draft.screenshotDataUrl ? (
+                    <div className="screenshot-preview-container">
+                      <AnnotationCanvas
+                        imageSrc={draft.screenshotDataUrl}
+                        annotations={annotations}
+                        onAnnotationsChange={handleAnnotationsChange}
+                        onCompositeRendered={handleCompositeRendered}
+                      />
+                      <div className="screenshot-footer">
+                        <span>Captured tab viewport</span>
+                        {draft.metadata.viewport && (
+                          <span>
+                            {draft.metadata.viewport.width} × {draft.metadata.viewport.height} px
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <p style={{ color: 'var(--text-muted)' }}>No screenshot image available.</p>
+                  )}
+                </section>
+
+                {/* Page Metadata */}
+                <section className="editor-card" data-testid="metadata-card">
+                  <h2>Page Context</h2>
+                  <div className="metadata-grid">
+                    <div className="metadata-item">
+                      <span className="metadata-label">Page Title</span>
+                      <span className="metadata-value" data-testid="meta-title">
+                        {draft.metadata.title || 'Untitled page'}
+                      </span>
+                    </div>
+
+                    <div className="metadata-item">
+                      <span className="metadata-label">Page URL</span>
+                      <span className="metadata-value" data-testid="meta-url">
+                        {draft.metadata.url ? (
+                          <a
+                            href={draft.metadata.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="metadata-link"
+                          >
+                            {draft.metadata.url}
+                          </a>
+                        ) : (
+                          'Unavailable'
+                        )}
+                      </span>
+                    </div>
+
+                    <div className="metadata-item">
+                      <span className="metadata-label">Captured At</span>
+                      <span className="metadata-value" data-testid="meta-captured-at">
+                        {new Date(draft.metadata.capturedAt).toLocaleString()}
+                      </span>
+                    </div>
+
+                    {draft.metadata.viewport && (
+                      <div className="metadata-item" data-testid="meta-viewport">
+                        <span className="metadata-label">Viewport</span>
+                        <span className="metadata-value">
+                          {draft.metadata.viewport.width} × {draft.metadata.viewport.height} px
+                        </span>
+                      </div>
+                    )}
+
+                    {draft.metadata.platform && (
+                      <div className="metadata-item" data-testid="meta-platform">
+                        <span className="metadata-label">Platform</span>
+                        <span className="metadata-value">{draft.metadata.platform}</span>
+                      </div>
+                    )}
+                  </div>
+                </section>
               </div>
-            </section>
-          </div>
-        </main>
+            </main>
+          )}
+        </>
       )}
     </div>
   );

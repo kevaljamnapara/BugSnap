@@ -385,4 +385,63 @@ describe('Editor Component — Phase 3 Features', () => {
       expect(screen.getByText(/Export Error:/i)).toBeInTheDocument();
     });
   });
+
+  describe('Phase 5 — Report Management & Active Edit Protection in Editor', () => {
+    it('allows toggling between Editor view and Report Management view', async () => {
+      await storage.saveReport(mockDraft);
+      window.history.pushState({}, '', `/editor.html?id=${mockDraft.id}`);
+
+      render(<Editor />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('manage-reports-btn')).toBeInTheDocument();
+      });
+
+      // Switch to Management view
+      fireEvent.click(screen.getByTestId('manage-reports-btn'));
+
+      expect(screen.getByTestId('report-management-view')).toBeInTheDocument();
+      expect(screen.getByTestId('manage-reports-btn')).toHaveTextContent('← Back to Editor');
+
+      // Switch back to Editor view
+      fireEvent.click(screen.getByTestId('manage-reports-btn'));
+      expect(screen.getByTestId('editor-form-card')).toBeInTheDocument();
+      expect(screen.getByTestId('manage-reports-btn')).toHaveTextContent('Manage Reports & Settings');
+    });
+
+    it('acquires active edit lock on mount and releases upon discard', async () => {
+      await storage.saveReport(mockDraft);
+      window.history.pushState({}, '', `/editor.html?id=${mockDraft.id}`);
+
+      render(<Editor />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('input-title')).toBeInTheDocument();
+      });
+
+      // Report should be locked by this active editor session
+      expect(await storage.isReportLocked(mockDraft.id)).toBe(true);
+
+      // Discard draft
+      fireEvent.click(screen.getByTestId('discard-draft-btn'));
+      fireEvent.click(screen.getByTestId('confirm-discard-btn'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('draft-discarded-notice')).toBeInTheDocument();
+      });
+
+      // Lock is released
+      expect(await storage.isReportLocked(mockDraft.id)).toBe(false);
+    });
+
+    it('displays ReportManagement view when no draft ID is provided', async () => {
+      window.history.pushState({}, '', '/editor.html');
+      render(<Editor />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('editor-empty')).toBeInTheDocument();
+        expect(screen.getByTestId('report-management-view')).toBeInTheDocument();
+      });
+    });
+  });
 });

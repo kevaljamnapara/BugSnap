@@ -94,12 +94,13 @@ Permissions must follow the principle of least privilege:
 - No broad host permissions: Domain-specific access is not required for MVP capture.
 
 ## 7. Automatic cleanup
-- Cleanup is optional and off by default unless approved otherwise.
-- Retention policy applies consistently to eligible saved reports and abandoned drafts.
-- Strictly protects reports currently being edited from automatic cleanup.
-- Deletes complete eligible records and associated evidence from local storage.
-- Clearly discloses cleanup consequences to the user.
-- Handles storage eviction or manual browser clearing transparently.
+- **Default state:** Cleanup is disabled (OFF) by default for new installations and remains off unless explicitly enabled by the user.
+- **Retention options:** Configurable retention periods of 7, 30, and 90 days. Settings are persisted in IndexedDB `settings` store (`key: 'retention'`).
+- **Timestamp eligibility policy:** Evaluates `updatedAt` first, falling back to `createdAt` and `metadata.capturedAt`. A report is eligible for cleanup if and only if `effectiveTimestamp < cutoffTimestamp` (where `cutoffTimestamp = now - retentionDays * 86,400,000`). Reports at or newer than the cutoff, or records with invalid/missing timestamps, are safely preserved.
+- **Active edit protection:** Multi-tab persistent session lock store (`locks` table in IndexedDB, schema version 2). Active editor instances acquire a session lock on mount, send periodic heartbeats every 15 seconds, and release locks on unmount or tab closure. Locks expire after 45 seconds of inactivity to protect against crashed sessions. Reports with an active unexpired lock are strictly excluded from cleanup.
+- **Deletion completeness:** Eligible records are completely purged, including the metadata record, original screenshot data, vector annotations, and annotated composite screenshot. Applies consistently to both saved reports and abandoned drafts.
+- **Resilient error handling:** Cleanup iterates through eligible reports, catching and logging errors per report without halting the remaining cleanup batch. Returns a structured `CleanupResult` (`evaluatedCount`, `deletedCount`, `skippedLockedCount`, `errors`).
+- **Execution triggers:** Runs in the background on extension startup (`chrome.runtime.onStartup`) and install/update (`chrome.runtime.onInstalled`). Also invokable on-demand via the Report Management settings UI.
 
 ## 8. Browser compatibility
 - Chrome desktop is the first implementation/test target.
@@ -117,14 +118,14 @@ Design for:
 - Export/download failure or browser multiple-download blocking
 - Invalid or empty report fields
 - Annotation coordinate scaling issues
-- Cleanup failure
+- Cleanup failure (resilient per-item error handling with status feedback)
 
 ## 10. Open architecture decisions
-1. Exact Vite/Manifest V3 build tooling plugin.
-2. Local storage schema details and migration helper.
-3. Annotation implementation choice (maintained lightweight library vs. small custom canvas/SVG).
-4. Reliable browser/OS metadata properties available without extra permissions.
-5. Automatic cleanup default and retention period options (O-001, O-002, O-003).
+1. Exact Vite/Manifest V3 build tooling plugin. (Resolved: `@crxjs/vite-plugin` v3.0.0 per D-017)
+2. Local storage schema details and migration helper. (Resolved: IndexedDB `bugsnap_db` v2 with `reports`, `settings`, and `locks` stores per D-019, D-022, D-025)
+3. Annotation implementation choice. (Resolved: lightweight SVG overlay & Canvas 2D per D-020)
+4. Reliable browser/OS metadata properties available without extra permissions. (Resolved per D-018)
+5. Automatic cleanup default and retention period options. (Resolved by D-022, D-023, D-024, D-025: OFF by default, 7/30/90 days retention, complete report & screenshot deletion, multi-tab session locks)
 6. Browser version support matrix and minimum supported Chromium versions (O-004, O-010).
 
 ## 11. Architecture approval gate
