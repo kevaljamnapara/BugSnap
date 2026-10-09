@@ -83,12 +83,23 @@ export interface ConsoleEvidenceEvent {
   count: number;
 }
 
+export interface NetworkEvidenceEvent {
+  id: string;
+  url: string;
+  initiatorType: string;
+  duration: number;
+  timestamp: string;
+  outcome: 'observed-resource';
+  count: number;
+}
+
 export interface DebugSession {
   tabId: number;
   status: 'active' | 'stopped';
   startedAt: string;
   stoppedAt?: string;
   consoleEvents: ConsoleEvidenceEvent[];
+  networkEvents?: NetworkEvidenceEvent[];
 }
 
 export interface PageMetadata {

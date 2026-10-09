@@ -11,3 +11,7 @@ export function sanitizeEvidenceText(value: unknown, maxLength = 2_000): string 
     .replace(KEY_VALUE_SECRET, '$1=[redacted]')
     .slice(0, maxLength);
 }
+
+export function sanitizeEvidenceUrl(value: unknown): string {
+  return sanitizeEvidenceText(value, 1_500);
+}

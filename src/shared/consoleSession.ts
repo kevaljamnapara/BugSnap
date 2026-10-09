@@ -1,5 +1,5 @@
-import { ConsoleEvidenceEvent, ConsoleEventKind } from './types';
-import { sanitizeEvidenceText } from './evidenceSanitizer';
+import { ConsoleEvidenceEvent, ConsoleEventKind, NetworkEvidenceEvent } from './types';
+import { sanitizeEvidenceText, sanitizeEvidenceUrl } from './evidenceSanitizer';
 
 export const MAX_CONSOLE_EVENTS = 50;
 
@@ -28,5 +28,23 @@ export function appendConsoleEvent(
   if (duplicate) {
     return existing.map((event) => event.id === duplicate.id ? { ...event, count: event.count + 1, timestamp: incoming.timestamp } : event);
   }
+  return [...existing, incoming].slice(-MAX_CONSOLE_EVENTS);
+}
+
+export function normalizeNetworkEvent(details: { name?: unknown; initiatorType?: unknown; duration?: unknown; timestamp?: unknown }): NetworkEvidenceEvent {
+  return {
+    id: `network-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    url: sanitizeEvidenceUrl(details.name || ''),
+    initiatorType: sanitizeEvidenceText(details.initiatorType || 'other', 80),
+    duration: typeof details.duration === 'number' && Number.isFinite(details.duration) ? details.duration : 0,
+    timestamp: typeof details.timestamp === 'string' ? details.timestamp : new Date().toISOString(),
+    outcome: 'observed-resource',
+    count: 1,
+  };
+}
+
+export function appendNetworkEvent(existing: NetworkEvidenceEvent[], incoming: NetworkEvidenceEvent): NetworkEvidenceEvent[] {
+  const duplicate = existing.find((event) => event.url === incoming.url && event.initiatorType === incoming.initiatorType);
+  if (duplicate) return existing.map((event) => event.id === duplicate.id ? { ...event, count: event.count + 1, timestamp: incoming.timestamp } : event);
   return [...existing, incoming].slice(-MAX_CONSOLE_EVENTS);
 }

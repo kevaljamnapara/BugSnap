@@ -26,6 +26,11 @@
 - [ ] Manually verify page `error` and `unhandledrejection` collection and stop behavior in Chrome.
 - [ ] Confirm unsupported DevTools console output is not claimed as captured.
 
+### Debug-session network evidence
+- [x] Verify resource metadata normalization, URL redaction, duplicate grouping, and payload limiting — automated.
+- [ ] Manually verify supported `PerformanceObserver` resource events in Chrome.
+- [ ] Confirm observed resource timings are not presented as confirmed HTTP failures.
+
 ## 3. Report editor
 - [ ] Create a report with all fields populated.
 - [ ] Test each severity: Low, Medium, High, Critical.
