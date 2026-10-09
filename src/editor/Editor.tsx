@@ -21,6 +21,7 @@ import { ReportManagement } from './ReportManagement';
 import { cropImageDataUrl } from '../shared/cropUtils';
 import { DebugTimeline } from './DebugTimeline';
 import { ReproductionStepsRecorder } from './ReproductionStepsRecorder';
+import { EnvironmentDiagnostics } from './EnvironmentDiagnostics';
 
 export const Editor: React.FC = () => {
   const [draft, setDraft] = useState<BugReport | null>(null);
@@ -733,6 +734,7 @@ export const Editor: React.FC = () => {
             </section>
           )}
           {draft?.debugSession && !isDiscarded && <DebugTimeline session={draft.debugSession} />}
+          {draft && !isDiscarded && <EnvironmentDiagnostics metadata={draft.metadata} />}
           {/* No Draft ID State: Shows guidance and displays ReportManagement below */}
           {!isLoading && !draftId && !errorMessage && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
