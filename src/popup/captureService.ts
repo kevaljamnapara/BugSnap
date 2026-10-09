@@ -7,6 +7,7 @@ import { initSelectionOverlay } from '../content/selectionOverlay';
 export interface CaptureResult {
   success: boolean;
   draft?: BugReport;
+  tabId?: number;
   error?: string;
 }
 
@@ -187,5 +188,6 @@ export async function captureActiveTab(mode: CaptureMode = 'viewport'): Promise<
   return {
     success: true,
     draft,
+    tabId: activeTab.id,
   };
 }

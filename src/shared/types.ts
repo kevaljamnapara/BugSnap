@@ -71,6 +71,26 @@ export interface DiagnosticEvidence {
   jsErrors?: string[];
 }
 
+export type ConsoleEventKind = 'runtime-error' | 'unhandled-rejection';
+
+export interface ConsoleEvidenceEvent {
+  id: string;
+  kind: ConsoleEventKind;
+  message: string;
+  stack?: string;
+  source?: string;
+  timestamp: string;
+  count: number;
+}
+
+export interface DebugSession {
+  tabId: number;
+  status: 'active' | 'stopped';
+  startedAt: string;
+  stoppedAt?: string;
+  consoleEvents: ConsoleEvidenceEvent[];
+}
+
 export interface PageMetadata {
   url: string;
   title: string;
@@ -100,6 +120,7 @@ export interface BugReport {
   annotatedScreenshotDataUrl?: string;
   annotations?: Annotation[];
   filenameStem?: string;
+  debugSession?: DebugSession;
   createdAt: string;
   updatedAt: string;
 }

@@ -36,6 +36,27 @@ export const Popup: React.FC = () => {
     }
   };
 
+  const handleStartDebugSession = async () => {
+    setIsCapturing(true);
+    setErrorMessage(null);
+    const result = await captureActiveTab('viewport');
+    if (!result.success || !result.draft || result.tabId === undefined) {
+      setErrorMessage(result.error || 'Unable to start a debugging session.');
+      setIsCapturing(false);
+      return;
+    }
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'BUGSNAP_START_CONSOLE_SESSION', reportId: result.draft.id, tabId: result.tabId,
+      });
+      if (!response?.success) setErrorMessage(response?.error || 'The debugging session could not start.');
+    } catch (error) {
+      setErrorMessage(`The debugging session could not start: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setIsCapturing(false);
+    }
+  };
+
   const handleOpenEditor = () => {
     if (typeof chrome !== 'undefined' && chrome.tabs && chrome.runtime) {
       chrome.tabs.create({ url: chrome.runtime.getURL('editor.html') });
@@ -124,6 +145,22 @@ export const Popup: React.FC = () => {
             </div>
           </div>
           <span className="mode-pill">Overlay</span>
+        </button>
+
+        <button
+          className="capture-mode-btn capture-mode-secondary"
+          onClick={handleStartDebugSession}
+          disabled={isCapturing}
+          data-testid="start-debug-session-btn"
+        >
+          <div className="capture-mode-left">
+            <span className="mode-icon">🐞</span>
+            <div className="mode-text">
+              <span className="mode-title">Start Error Session</span>
+              <span className="mode-desc">Capture supported runtime errors only</span>
+            </div>
+          </div>
+          <span className="mode-pill">Local</span>
         </button>
 
         <button
