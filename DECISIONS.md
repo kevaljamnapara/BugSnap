@@ -18,6 +18,10 @@ Record approved product and technical decisions here. Do not treat recommendatio
 | D-010 | No backend, account, cloud sync, paid API, or AI inference in MVP. | Confirmed |
 | D-011 | Reports/screenshots remain local unless the user explicitly exports them. | Confirmed |
 | D-012 | No commits, pushes, PRs, merges, or destructive Git operations without explicit approval. | Confirmed |
+| D-013 | Draft persistence and recovery: Save captured reports as local drafts with stable IDs; persist edits via debounced autosave; restore on reload or closure without duplicates; provide explicit Discard Draft confirmation; keep abandoned drafts recoverable; protect actively edited reports from cleanup. | Confirmed |
+| D-014 | Canonical Markdown export: Generate reports matching the approved Markdown template with matching sanitized filename stems, relative screenshot references, and safe text formatting. Export Markdown and screenshot as separate files. | Confirmed |
+| D-015 | Download mechanism: Use browser-native Blob URLs via `<a download>` links. Do not request the Chrome `downloads` permission for MVP. Document browser multi-download permission prompt limitation. | Confirmed |
+| D-016 | Testing strategy: TypeScript type checking (`tsc --noEmit`), ESLint with TypeScript support, Vitest, React Testing Library, and jsdom with focused Chrome API mocks. Real extension APIs verified through manual testing in Chrome. | Confirmed |
 
 ## Open decisions
 
@@ -25,13 +29,13 @@ Record approved product and technical decisions here. Do not treat recommendatio
 |---|---|---|---|
 | O-001 | Should automatic cleanup be enabled by default? | Off by default | Awaiting approval |
 | O-002 | Which retention periods should be offered? | 7, 30, and 90 days | Awaiting approval |
-| O-003 | What should cleanup delete? | Complete eligible BugSnap report and associated evidence | Awaiting approval |
+| O-003 | What should cleanup delete? | Complete eligible BugSnap reports and abandoned drafts; strictly protect reports currently being edited | Awaiting approval |
 | O-004 | Which browsers are release targets? | Chrome first; test Edge and Brave separately | Needs version/test matrix |
-| O-005 | Which screenshot format is required? | PNG initially | Proposed |
-| O-006 | How should capture data reach the editor? | Evaluate supported messaging and temporary local draft options | Architecture review |
-| O-007 | Which local storage design should be used? | Evaluate IndexedDB for screenshot data and appropriate storage for settings | Architecture review |
+| O-005 | Which screenshot format is required? | PNG initially (exported separately via native Blob links per D-014/D-015) | Proposed |
+| O-006 | How should capture data reach the editor? | Resolved by D-013: IndexedDB draft record with stable draft ID passed to editor URL (`editor.html?id=<draftId>`) | Resolved (D-013) |
+| O-007 | Which local storage design should be used? | IndexedDB for reports, drafts, and screenshot data; extension storage for user preferences | Architecture review |
 | O-008 | How should annotation be implemented? | Compare maintained library versus small custom implementation | Architecture review |
-| O-009 | Which metadata is reliably available? | Collect only metadata supported without unnecessary permissions | Verify APIs |
+| O-009 | Which metadata is reliably available? | Collect only metadata supported without unnecessary permissions; omit unavailable data | Verify APIs |
 | O-010 | Which minimum browser versions are supported? | Decide after API and compatibility review | Open |
 
 ## Change procedure

@@ -16,74 +16,90 @@
 - Remains small and focused.
 
 ### Capture/background coordination
-- Uses the relevant supported extension APIs to capture the active tab.
-- Collects only approved metadata.
-- Passes a capture result to the editor without silently duplicating or losing it.
-- Handles restricted tabs and permission failures.
+- Uses supported extension APIs to capture the active tab upon explicit user action.
+- Collects only approved metadata; omits unavailable fields without fabricating values.
+- Assigns a stable draft ID and persists the initial capture record and screenshot in local storage.
+- Passes the draft ID to the editor via URL parameter (`editor.html?id=<draftId>`) without relying on large URL strings.
+- Handles restricted tabs and permission failures with user-facing errors.
 
 ### Full-page report editor
+- Opens in a dedicated browser tab using the draft ID.
 - Displays screenshot and captured metadata.
 - Edits title, severity, reproduction steps, expected behavior, actual behavior, and notes.
-- Supports screenshot annotation.
+- Automatically persists form edits to local storage via debounced autosave.
+- Restores drafts cleanly upon page reload (`F5`) or accidental closure without duplicating records.
+- Provides an explicit "Discard Draft" action with a confirmation dialog to permanently delete unexported drafts and evidence.
+- Supports screenshot annotation: rectangles, arrows, and text labels.
 - Saves and exports reports.
 
 ### Local report repository
-- Persists report records and screenshot evidence locally.
-- Supports list, read, update, delete, and export.
-- Handles storage errors and quota limitations.
+- Persists report records (`status: 'draft' | 'saved'`) and binary screenshot evidence in IndexedDB.
+- Supports list, read, update, delete, and export operations.
+- Lists both saved reports and recoverable abandoned drafts.
+- Strictly protects reports currently being edited from automatic cleanup.
+- Handles storage errors and quota limitations gracefully.
 
 ### Export module
-- Generates Markdown from actual report data.
-- Exports the corresponding screenshot as a separate image.
-- Uses stable matching filenames and does not invent metadata.
+- Generates structured Markdown according to the canonical report template.
+- Uses matching, sanitized filename stems for both Markdown and screenshot (`bugsnap-<slug>-<timestamp>`).
+- Safely formats and escapes user Markdown input.
+- Exports Markdown and screenshot as separate downloadable files via browser-native Blob URLs (`<a download>`) without requiring the Chrome `downloads` permission.
+- Documents the browser behavior where sequential downloads may prompt the user for permission.
 
 ## 3. Proposed technology direction
 - React + TypeScript.
 - Vite with a compatible Manifest V3 extension build setup.
 - Chrome/Chromium extension APIs, subject to compatibility validation.
-- IndexedDB is a candidate for report records and binary screenshot data; Chrome storage may be suitable for small settings/preferences.
-- A maintained annotation library or a small custom implementation may be considered after evaluating size, licensing, accessibility, and export fidelity.
+- IndexedDB for report records, drafts, and binary screenshot data; `chrome.storage.local` for lightweight settings.
+- Browser-native Blob URLs (`<a download>`) for file exports, avoiding the Chrome `downloads` permission.
+- Planned testing stack: TypeScript checks (`tsc --noEmit`), ESLint with TypeScript support, Vitest, React Testing Library, and jsdom with focused Chrome API mocks. Real extension APIs verified through manual testing in Chrome.
+- A maintained annotation library or a small custom implementation will be evaluated for size, licensing, accessibility, and export fidelity.
 
-No exact dependency is approved yet.
+No dependencies are installed yet.
 
 ## 4. Data model — conceptual only
-A report may contain:
-- Stable report ID
+A report record in IndexedDB may contain:
+- Stable report/draft ID (UUID)
+- Status enum: `draft` | `saved`
 - Title
-- Severity enum: Low, Medium, High, Critical
+- Severity enum: `Low`, `Medium`, `High`, `Critical`
 - Page URL and title
 - Capture timestamp
-- Available browser/OS metadata
+- Available browser/OS metadata (omitting unavailable properties)
 - Reproduction steps
 - Expected result
 - Actual result
 - Additional notes
-- Original screenshot data/reference
-- Annotated screenshot data/reference, if generated
+- Original screenshot Blob/data
+- Annotated screenshot Blob/data, if generated
+- Sanitized filename stem
 - Created and updated timestamps
 
-Do not store sensitive page contents or form values.
+Do not store sensitive page contents, cookies, or form values.
 
 ## 5. Capture-to-editor handoff
-The architecture must decide how the capture result reaches the full-page editor safely and reliably. Consider extension messaging, temporary draft storage, or another supported mechanism. Avoid relying on fragile URL query strings for screenshot data. Prevent duplicate reports when a user retries or reloads the editor.
+Handoff uses local storage persistence with a stable ID:
+1. Capture worker persists the capture and screenshot to IndexedDB under a newly generated stable `draftId` with `status: 'draft'`.
+2. Capture worker opens the editor tab: `editor.html?id=<draftId>`.
+3. Editor loads the existing record by ID from IndexedDB.
+4. Reloading the editor reloads the existing record by ID without creating duplicate drafts.
+5. If the user navigates away or closes the tab, the draft remains recoverable in the reports list.
+6. If the user chooses "Discard Draft", the record and its screenshot are purged after confirmation.
 
 ## 6. Permissions
-Permissions must be chosen only after mapping each required behavior to its API. Document:
-- Permission name
-- Feature requiring it
-- Why a narrower option is insufficient
-- User-visible privacy implication
-
-Do not request broad host permissions without a demonstrated need. Verify current browser API behavior and restrictions during implementation planning.
+Permissions must follow the principle of least privilege:
+- `activeTab`: For capturing the visible tab on user action.
+- `storage`: For storing user preferences/settings.
+- No Chrome `downloads` permission: File downloads are handled via browser-native Blob links (`<a download>`), avoiding intrusive install-time permission warnings.
+- No broad host permissions: Domain-specific access is not required for MVP capture.
 
 ## 7. Automatic cleanup
-- Cleanup is optional and should be off by default unless the user approves a different default.
-- Exact retention periods remain undecided.
-- Cleanup should delete only eligible BugSnap-managed local records and their associated evidence.
-- Explain the policy before enabling it.
-- Avoid deleting a currently open or unsaved report.
-- Report cleanup results and failures transparently.
-- Account for the fact that browser storage may be cleared independently of BugSnap.
+- Cleanup is optional and off by default unless approved otherwise.
+- Retention policy applies consistently to eligible saved reports and abandoned drafts.
+- Strictly protects reports currently being edited from automatic cleanup.
+- Deletes complete eligible records and associated evidence from local storage.
+- Clearly discloses cleanup consequences to the user.
+- Handles storage eviction or manual browser clearing transparently.
 
 ## 8. Browser compatibility
 - Chrome desktop is the first implementation/test target.
@@ -92,33 +108,28 @@ Do not request broad host permissions without a demonstrated need. Verify curren
 
 ## 9. Failure handling
 Design for:
-- Restricted browser pages
-- Active tab unavailable
-- Screenshot capture failure
+- Restricted browser pages (`chrome://`, extension webstore)
+- Active tab unavailable or permission denied
+- Screenshot capture failure (provide retry)
 - Editor opening failure
 - Storage quota exceeded
 - Corrupt or missing screenshot data
-- Export/download failure
+- Export/download failure or browser multiple-download blocking
 - Invalid or empty report fields
 - Annotation coordinate scaling issues
 - Cleanup failure
 
 ## 10. Open architecture decisions
-1. Exact Vite/Manifest V3 tooling.
-2. Capture result handoff mechanism.
-3. Local storage schema and migration strategy.
-4. Annotation implementation and image export method.
-5. Browser/OS metadata that is reliably available without extra permissions.
-6. Automatic cleanup periods and scheduling behavior.
-7. Browser version support matrix.
-8. Testing framework and automation level.
+1. Exact Vite/Manifest V3 build tooling plugin.
+2. Local storage schema details and migration helper.
+3. Annotation implementation choice (maintained lightweight library vs. small custom canvas/SVG).
+4. Reliable browser/OS metadata properties available without extra permissions.
+5. Automatic cleanup default and retention period options (O-001, O-002, O-003).
+6. Browser version support matrix and minimum supported Chromium versions (O-004, O-010).
 
 ## 11. Architecture approval gate
-Before implementation, confirm:
-- The component boundaries and data flow.
-- Required permissions and rationale.
-- Storage and recovery strategy.
-- Annotation and export strategy.
-- Cleanup semantics.
-- Initial browser support matrix.
-- Testing plan and dependencies.
+Before Phase 1 implementation begins, confirm:
+- Scaffold build tooling and configuration.
+- Local storage schema and IndexedDB helper.
+- Annotation approach and rendering fidelity.
+- Final permission declaration in `manifest.json`.
