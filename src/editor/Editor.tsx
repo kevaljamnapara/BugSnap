@@ -22,6 +22,7 @@ import { cropImageDataUrl } from '../shared/cropUtils';
 import { DebugTimeline } from './DebugTimeline';
 import { ReproductionStepsRecorder } from './ReproductionStepsRecorder';
 import { EnvironmentDiagnostics } from './EnvironmentDiagnostics';
+import { EvidenceReview } from './EvidenceReview';
 
 export const Editor: React.FC = () => {
   const [draft, setDraft] = useState<BugReport | null>(null);
@@ -482,6 +483,13 @@ export const Editor: React.FC = () => {
     }
   };
 
+  const handleEvidenceReviewChange = async (debugSession: NonNullable<BugReport['debugSession']>) => {
+    if (!draft) return;
+    const updated = { ...draft, debugSession, updatedAt: new Date().toISOString() };
+    await saveReport(updated);
+    setDraft(updated);
+  };
+
   const isTitleEmpty = title.trim().length === 0;
 
   return (
@@ -734,6 +742,7 @@ export const Editor: React.FC = () => {
             </section>
           )}
           {draft?.debugSession && !isDiscarded && <DebugTimeline session={draft.debugSession} />}
+          {draft?.debugSession && !isDiscarded && <EvidenceReview session={draft.debugSession} onChange={handleEvidenceReviewChange} />}
           {draft && !isDiscarded && <EnvironmentDiagnostics metadata={draft.metadata} />}
           {/* No Draft ID State: Shows guidance and displays ReportManagement below */}
           {!isLoading && !draftId && !errorMessage && (

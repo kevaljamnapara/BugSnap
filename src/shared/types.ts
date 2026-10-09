@@ -100,6 +100,7 @@ export interface DebugSession {
   stoppedAt?: string;
   consoleEvents: ConsoleEvidenceEvent[];
   networkEvents?: NetworkEvidenceEvent[];
+  excludedEvidenceIds?: string[];
 }
 
 export interface PageMetadata {
