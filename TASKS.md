@@ -22,12 +22,12 @@
 **Exit criteria:** Extension loads, popup opens, editor tab opens, test runner passes, build passes.
 
 ## Phase 2 — Capture workflow
-- [ ] Capture the visible active tab after user action.
-- [ ] Record approved metadata (omit unavailable metadata without inventing values).
-- [ ] Assign stable draft ID and persist initial draft and screenshot to local storage.
-- [ ] Pass draft ID to editor via URL query parameter (`editor.html?id=<draftId>`).
-- [ ] Handle restricted pages and capture failures with clear errors and retry.
-- [ ] Verify no duplicate draft/report on retry or reload.
+- [x] Capture the visible active tab after user action.
+- [x] Record approved metadata (omit unavailable metadata without inventing values).
+- [x] Assign stable draft ID and persist initial draft and screenshot to local storage.
+- [x] Pass draft ID to editor via URL query parameter (`editor.html?id=<draftId>`).
+- [x] Handle restricted pages and capture failures with clear errors and retry.
+- [x] Verify no duplicate draft/report on retry or reload.
 
 **Exit criteria:** Capture-to-editor flow works and errors are understandable.
 
