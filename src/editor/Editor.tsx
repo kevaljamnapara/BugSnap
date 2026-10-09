@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import './Editor.css';
-import { APP_NAME } from '../shared/constants';
-import { BugReport } from '../shared/types';
-import { getReport } from '../shared/storage';
+import { APP_NAME, SEVERITY_LEVELS } from '../shared/constants';
+import { BugReport, Severity } from '../shared/types';
+import { getReport, saveReport, deleteReport } from '../shared/storage';
 
 export const Editor: React.FC = () => {
   const [draft, setDraft] = useState<BugReport | null>(null);
@@ -10,6 +10,30 @@ export const Editor: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [draftId, setDraftId] = useState<string | null>(null);
 
+  // Form Fields State
+  const [title, setTitle] = useState<string>('');
+  const [severity, setSeverity] = useState<Severity>('Medium');
+  const [reproductionSteps, setReproductionSteps] = useState<string>('');
+  const [expectedBehavior, setExpectedBehavior] = useState<string>('');
+  const [actualBehavior, setActualBehavior] = useState<string>('');
+  const [additionalNotes, setAdditionalNotes] = useState<string>('');
+
+  // Form Validation State
+  const [titleTouched, setTitleTouched] = useState<boolean>(false);
+
+  // Autosave & Persistence State
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const isDirtyRef = useRef<boolean>(false);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Discard Draft State
+  const [showDiscardModal, setShowDiscardModal] = useState<boolean>(false);
+  const [isDiscarding, setIsDiscarding] = useState<boolean>(false);
+  const [discardError, setDiscardError] = useState<string | null>(null);
+  const [isDiscarded, setIsDiscarded] = useState<boolean>(false);
+
+  // Load Draft by ID on mount
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const id = params.get('id');
@@ -29,6 +53,13 @@ export const Editor: React.FC = () => {
 
         if (loaded) {
           setDraft(loaded);
+          setTitle(loaded.title || '');
+          setSeverity(loaded.severity || 'Medium');
+          setReproductionSteps(loaded.reproductionSteps || '');
+          setExpectedBehavior(loaded.expectedBehavior || '');
+          setActualBehavior(loaded.actualBehavior || '');
+          setAdditionalNotes(loaded.additionalNotes || '');
+          setSaveStatus('saved');
         } else {
           setErrorMessage(`Draft with ID "${id}" was not found in local storage.`);
         }
@@ -51,28 +82,260 @@ export const Editor: React.FC = () => {
     };
   }, []);
 
+  // Autosave Function
+  const triggerSave = useCallback(
+    async (updatedFields: {
+      title: string;
+      severity: Severity;
+      reproductionSteps: string;
+      expectedBehavior: string;
+      actualBehavior: string;
+      additionalNotes: string;
+    }) => {
+      if (!draft) return;
+
+      setSaveStatus('saving');
+      setSaveError(null);
+
+      const updatedReport: BugReport = {
+        ...draft,
+        ...updatedFields,
+        updatedAt: new Date().toISOString(),
+      };
+
+      try {
+        await saveReport(updatedReport);
+        setDraft(updatedReport);
+        setSaveStatus('saved');
+      } catch (err) {
+        setSaveStatus('error');
+        setSaveError(
+          `Failed to save draft to local storage: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    },
+    [draft],
+  );
+
+  // Debounced Autosave Trigger
+  const handleFieldChange = (
+    field: 'title' | 'severity' | 'reproductionSteps' | 'expectedBehavior' | 'actualBehavior' | 'additionalNotes',
+    value: string,
+  ) => {
+    isDirtyRef.current = true;
+
+    const newValues = {
+      title: field === 'title' ? value : title,
+      severity: field === 'severity' ? (value as Severity) : severity,
+      reproductionSteps: field === 'reproductionSteps' ? value : reproductionSteps,
+      expectedBehavior: field === 'expectedBehavior' ? value : expectedBehavior,
+      actualBehavior: field === 'actualBehavior' ? value : actualBehavior,
+      additionalNotes: field === 'additionalNotes' ? value : additionalNotes,
+    };
+
+    if (field === 'title') setTitle(value);
+    if (field === 'severity') setSeverity(value as Severity);
+    if (field === 'reproductionSteps') setReproductionSteps(value);
+    if (field === 'expectedBehavior') setExpectedBehavior(value);
+    if (field === 'actualBehavior') setActualBehavior(value);
+    if (field === 'additionalNotes') setAdditionalNotes(value);
+
+    setSaveStatus('saving');
+
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    debounceTimerRef.current = setTimeout(() => {
+      triggerSave(newValues);
+    }, 400);
+  };
+
+  // Immediate Save on Blur (e.g. user leaves field)
+  const handleFieldBlur = () => {
+    if (isDirtyRef.current && draft) {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+      triggerSave({
+        title,
+        severity,
+        reproductionSteps,
+        expectedBehavior,
+        actualBehavior,
+        additionalNotes,
+      });
+      isDirtyRef.current = false;
+    }
+  };
+
+  // Manual Retry for Failed Save
+  const handleRetrySave = () => {
+    triggerSave({
+      title,
+      severity,
+      reproductionSteps,
+      expectedBehavior,
+      actualBehavior,
+      additionalNotes,
+    });
+  };
+
+  // Discard Draft Flow
+  const handleOpenDiscardModal = () => {
+    setDiscardError(null);
+    setShowDiscardModal(true);
+  };
+
+  const handleCancelDiscard = () => {
+    setShowDiscardModal(false);
+  };
+
+  const handleConfirmDiscard = async () => {
+    if (!draftId) return;
+
+    setIsDiscarding(true);
+    setDiscardError(null);
+
+    try {
+      await deleteReport(draftId);
+      setIsDiscarded(true);
+      setShowDiscardModal(false);
+    } catch (err) {
+      setDiscardError(
+        `Failed to delete draft: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    } finally {
+      setIsDiscarding(false);
+    }
+  };
+
+  const isTitleEmpty = title.trim().length === 0;
+
   return (
     <div className="editor-layout">
+      {/* Header */}
       <header className="editor-header">
-        <h1>{APP_NAME} — Report Editor</h1>
-        <div className="header-badges">
-          <span className="badge badge-draft">Draft</span>
-          {draftId && <span className="badge badge-id">ID: {draftId}</span>}
+        <div className="header-left">
+          <h1>{APP_NAME} — Report Editor</h1>
+          <div className="header-badges">
+            <span className="badge badge-draft">Draft</span>
+            {draftId && <span className="badge badge-id">ID: {draftId}</span>}
+          </div>
+        </div>
+
+        <div className="header-actions">
+          {/* Autosave Status Indicator */}
+          {draft && !isDiscarded && (
+            <div className="save-status-container" data-testid="save-status">
+              <span className={`status-dot status-dot-${saveStatus}`} />
+              <span className={`status-text ${saveStatus === 'error' ? 'status-text-error' : ''}`}>
+                {saveStatus === 'saving' && 'Saving...'}
+                {saveStatus === 'saved' && 'Saved locally'}
+                {saveStatus === 'error' && 'Save failed'}
+              </span>
+            </div>
+          )}
+
+          {/* Discard Draft Button */}
+          {draft && !isDiscarded && (
+            <button
+              type="button"
+              className="btn btn-danger-outline btn-sm"
+              onClick={handleOpenDiscardModal}
+              data-testid="discard-draft-btn"
+            >
+              Discard Draft
+            </button>
+          )}
         </div>
       </header>
 
+      {/* Discard Confirmation Modal */}
+      {showDiscardModal && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true" data-testid="discard-modal">
+          <div className="modal-dialog">
+            <h3 className="modal-title">Discard this bug report?</h3>
+            <p className="modal-body">
+              This will permanently delete this draft and its associated screenshot evidence from
+              local storage. This action cannot be undone.
+            </p>
+
+            {discardError && (
+              <div className="editor-alert editor-alert-error" style={{ marginBottom: 16 }}>
+                {discardError}
+              </div>
+            )}
+
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={handleCancelDiscard}
+                disabled={isDiscarding}
+                data-testid="cancel-discard-btn"
+              >
+                Keep Editing
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={handleConfirmDiscard}
+                disabled={isDiscarding}
+                data-testid="confirm-discard-btn"
+              >
+                {isDiscarding ? 'Deleting...' : 'Discard and Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Save Error Alert */}
+      {saveError && (
+        <div className="editor-alert editor-alert-error" data-testid="save-error-alert">
+          <div>
+            <strong>Storage Error:</strong> {saveError}
+          </div>
+          <div>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={handleRetrySave}
+              data-testid="retry-save-btn"
+            >
+              Retry Save
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Loading State */}
       {isLoading && (
         <div className="editor-loading" data-testid="editor-loading">
           Loading report draft...
         </div>
       )}
 
+      {/* Draft Discarded State */}
+      {isDiscarded && (
+        <div className="editor-alert editor-alert-info" data-testid="draft-discarded-notice">
+          <strong>Draft Discarded</strong>
+          <p style={{ margin: '8px 0 0 0' }}>
+            This draft and its screenshot evidence have been permanently deleted from local storage.
+            You can close this tab or capture a new bug from the extension popup.
+          </p>
+        </div>
+      )}
+
+      {/* Error State */}
       {!isLoading && errorMessage && (
         <div className="editor-alert editor-alert-error" data-testid="editor-error">
           <strong>Unable to load draft:</strong> {errorMessage}
         </div>
       )}
 
+      {/* No Draft ID State */}
       {!isLoading && !draftId && !errorMessage && (
         <div className="editor-alert editor-alert-info" data-testid="editor-empty">
           <strong>No report draft selected.</strong>
@@ -83,88 +346,222 @@ export const Editor: React.FC = () => {
         </div>
       )}
 
-      {!isLoading && draft && (
-        <main>
-          {/* Metadata Section */}
-          <section className="editor-card" data-testid="metadata-card">
-            <h2>Captured Page Metadata</h2>
-            <div className="metadata-grid">
-              <div className="metadata-item">
-                <span className="metadata-label">Page Title</span>
-                <span className="metadata-value" data-testid="meta-title">
-                  {draft.metadata.title || 'Untitled page'}
-                </span>
-              </div>
+      {/* Main Editor Form & Evidence Grid */}
+      {!isLoading && draft && !isDiscarded && (
+        <main className="editor-grid">
+          {/* Left Column: Form Fields */}
+          <section className="editor-card" data-testid="editor-form-card">
+            <h2>Defect Details</h2>
 
-              <div className="metadata-item">
-                <span className="metadata-label">Page URL</span>
-                <span className="metadata-value" data-testid="meta-url">
-                  {draft.metadata.url ? (
-                    <a
-                      href={draft.metadata.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="metadata-link"
-                    >
-                      {draft.metadata.url}
-                    </a>
-                  ) : (
-                    'Unavailable'
-                  )}
+            {/* Bug Title (Required) */}
+            <div className="form-group">
+              <label htmlFor="report-title" className="form-label">
+                Bug Title <span className="form-required">*</span>
+              </label>
+              <input
+                id="report-title"
+                name="title"
+                type="text"
+                className={`form-input ${titleTouched && isTitleEmpty ? 'form-input-error' : ''}`}
+                placeholder="e.g. Checkout button misaligned on mobile viewport"
+                value={title}
+                onChange={(e) => handleFieldChange('title', e.target.value)}
+                onBlur={() => {
+                  setTitleTouched(true);
+                  handleFieldBlur();
+                }}
+                data-testid="input-title"
+                aria-required="true"
+                aria-invalid={titleTouched && isTitleEmpty}
+              />
+              {titleTouched && isTitleEmpty && (
+                <span className="field-error-text" data-testid="title-error">
+                  Bug title is required.
                 </span>
-              </div>
-
-              <div className="metadata-item">
-                <span className="metadata-label">Captured At</span>
-                <span className="metadata-value" data-testid="meta-captured-at">
-                  {new Date(draft.metadata.capturedAt).toLocaleString()}
-                </span>
-              </div>
-
-              {draft.metadata.viewport && (
-                <div className="metadata-item" data-testid="meta-viewport">
-                  <span className="metadata-label">Viewport</span>
-                  <span className="metadata-value">
-                    {draft.metadata.viewport.width} × {draft.metadata.viewport.height} px
-                  </span>
-                </div>
               )}
+            </div>
 
-              {draft.metadata.platform && (
-                <div className="metadata-item" data-testid="meta-platform">
-                  <span className="metadata-label">Platform</span>
-                  <span className="metadata-value">{draft.metadata.platform}</span>
-                </div>
-              )}
+            {/* Severity Selector */}
+            <div className="form-group">
+              <label className="form-label">Severity Level</label>
+              <div
+                className="severity-selector"
+                role="radiogroup"
+                aria-label="Severity Level"
+                data-testid="severity-selector"
+              >
+                {SEVERITY_LEVELS.map((level) => (
+                  <button
+                    key={level}
+                    type="button"
+                    role="radio"
+                    aria-checked={severity === level}
+                    className={`severity-pill ${severity === level ? `severity-pill-active-${level}` : ''}`}
+                    onClick={() => handleFieldChange('severity', level)}
+                    data-testid={`severity-pill-${level}`}
+                  >
+                    {level}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Reproduction Steps */}
+            <div className="form-group">
+              <label htmlFor="report-steps" className="form-label">
+                Reproduction Steps
+              </label>
+              <textarea
+                id="report-steps"
+                name="reproductionSteps"
+                className="form-textarea"
+                rows={4}
+                placeholder={'1. Navigate to /checkout\n2. Select standard shipping\n3. Click Place Order button'}
+                value={reproductionSteps}
+                onChange={(e) => handleFieldChange('reproductionSteps', e.target.value)}
+                onBlur={handleFieldBlur}
+                data-testid="input-steps"
+              />
+            </div>
+
+            {/* Expected Behavior */}
+            <div className="form-group">
+              <label htmlFor="report-expected" className="form-label">
+                Expected Behavior
+              </label>
+              <textarea
+                id="report-expected"
+                name="expectedBehavior"
+                className="form-textarea"
+                rows={3}
+                placeholder="Describe what should have happened..."
+                value={expectedBehavior}
+                onChange={(e) => handleFieldChange('expectedBehavior', e.target.value)}
+                onBlur={handleFieldBlur}
+                data-testid="input-expected"
+              />
+            </div>
+
+            {/* Actual Behavior */}
+            <div className="form-group">
+              <label htmlFor="report-actual" className="form-label">
+                Actual Behavior
+              </label>
+              <textarea
+                id="report-actual"
+                name="actualBehavior"
+                className="form-textarea"
+                rows={3}
+                placeholder="Describe what actually happened..."
+                value={actualBehavior}
+                onChange={(e) => handleFieldChange('actualBehavior', e.target.value)}
+                onBlur={handleFieldBlur}
+                data-testid="input-actual"
+              />
+            </div>
+
+            {/* Additional Notes */}
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label htmlFor="report-notes" className="form-label">
+                Additional Notes
+              </label>
+              <textarea
+                id="report-notes"
+                name="additionalNotes"
+                className="form-textarea"
+                rows={3}
+                placeholder="Console errors, device orientation, test credentials used..."
+                value={additionalNotes}
+                onChange={(e) => handleFieldChange('additionalNotes', e.target.value)}
+                onBlur={handleFieldBlur}
+                data-testid="input-notes"
+              />
             </div>
           </section>
 
-          {/* Screenshot Evidence Section */}
-          <section className="editor-card" data-testid="screenshot-card">
-            <h2>Visual Evidence</h2>
-            {draft.screenshotDataUrl ? (
-              <div className="screenshot-preview-container">
-                <div className="screenshot-wrapper">
-                  <img
-                    src={draft.screenshotDataUrl}
-                    alt="Captured defect evidence"
-                    className="screenshot-image"
-                    data-testid="screenshot-img"
-                  />
+          {/* Right Column: Evidence & Metadata */}
+          <div className="evidence-column">
+            {/* Screenshot Preview */}
+            <section className="editor-card" data-testid="screenshot-card">
+              <h2>Visual Evidence</h2>
+              {draft.screenshotDataUrl ? (
+                <div className="screenshot-preview-container">
+                  <div className="screenshot-wrapper">
+                    <img
+                      src={draft.screenshotDataUrl}
+                      alt="Captured defect evidence"
+                      className="screenshot-image"
+                      data-testid="screenshot-img"
+                    />
+                  </div>
+                  <div className="screenshot-footer">
+                    <span>Captured tab viewport</span>
+                    {draft.metadata.viewport && (
+                      <span>
+                        {draft.metadata.viewport.width} × {draft.metadata.viewport.height} px
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div className="screenshot-footer">
-                  <span>Visible viewport screenshot captured via Chrome API</span>
-                  {draft.metadata.viewport && (
-                    <span>
-                      {draft.metadata.viewport.width} × {draft.metadata.viewport.height}
+              ) : (
+                <p style={{ color: 'var(--text-muted)' }}>No screenshot image available.</p>
+              )}
+            </section>
+
+            {/* Page Metadata */}
+            <section className="editor-card" data-testid="metadata-card">
+              <h2>Page Context</h2>
+              <div className="metadata-grid">
+                <div className="metadata-item">
+                  <span className="metadata-label">Page Title</span>
+                  <span className="metadata-value" data-testid="meta-title">
+                    {draft.metadata.title || 'Untitled page'}
+                  </span>
+                </div>
+
+                <div className="metadata-item">
+                  <span className="metadata-label">Page URL</span>
+                  <span className="metadata-value" data-testid="meta-url">
+                    {draft.metadata.url ? (
+                      <a
+                        href={draft.metadata.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="metadata-link"
+                      >
+                        {draft.metadata.url}
+                      </a>
+                    ) : (
+                      'Unavailable'
+                    )}
+                  </span>
+                </div>
+
+                <div className="metadata-item">
+                  <span className="metadata-label">Captured At</span>
+                  <span className="metadata-value" data-testid="meta-captured-at">
+                    {new Date(draft.metadata.capturedAt).toLocaleString()}
+                  </span>
+                </div>
+
+                {draft.metadata.viewport && (
+                  <div className="metadata-item" data-testid="meta-viewport">
+                    <span className="metadata-label">Viewport</span>
+                    <span className="metadata-value">
+                      {draft.metadata.viewport.width} × {draft.metadata.viewport.height} px
                     </span>
-                  )}
-                </div>
+                  </div>
+                )}
+
+                {draft.metadata.platform && (
+                  <div className="metadata-item" data-testid="meta-platform">
+                    <span className="metadata-label">Platform</span>
+                    <span className="metadata-value">{draft.metadata.platform}</span>
+                  </div>
+                )}
               </div>
-            ) : (
-              <p style={{ color: 'var(--text-muted)' }}>No screenshot image available.</p>
-            )}
-          </section>
+            </section>
+          </div>
         </main>
       )}
     </div>

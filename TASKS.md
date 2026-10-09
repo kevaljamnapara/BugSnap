@@ -32,13 +32,13 @@
 **Exit criteria:** Capture-to-editor flow works and errors are understandable.
 
 ## Phase 3 — Report editor and persistence
-- [ ] Implement required report fields and severity options.
-- [ ] Implement debounced autosave to persist edits locally.
-- [ ] Restore drafts cleanly after editor reloads (`F5`) or accidental tab closure.
-- [ ] Provide explicit "Discard Draft" action with confirmation dialog to purge unexported drafts.
+- [x] Implement required report fields and severity options.
+- [x] Implement debounced autosave to persist edits locally.
+- [x] Restore drafts cleanly after editor reloads (`F5`) or accidental tab closure.
+- [x] Provide explicit "Discard Draft" action with confirmation dialog to purge unexported drafts.
 - [ ] List, reopen, update, and delete reports; keep abandoned drafts recoverable.
 - [ ] Protect reports currently being edited from automatic cleanup.
-- [ ] Handle storage quota and missing evidence gracefully.
+- [x] Handle storage quota and missing evidence gracefully.
 
 **Exit criteria:** Report data survives normal browser restarts, draft recovery functions reliably, and management flows pass.
 
