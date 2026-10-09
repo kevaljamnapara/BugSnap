@@ -64,13 +64,13 @@
 **Exit criteria:** Cleanup and privacy tests pass.
 
 ## Phase 6 — Polish and QA
-- [ ] Refine popup and editor UI.
-- [ ] Verify accessibility and keyboard behavior.
-- [ ] Test all core flows and error states.
-- [ ] Run type checks (`tsc --noEmit`), linting (`eslint`), Vitest test suite, and production build.
-- [ ] Test approved Chromium browsers.
-- [ ] Update `TESTING.md` with actual results.
-- [ ] Review release checklist.
+- [x] Refine popup and editor UI.
+- [x] Verify accessibility and keyboard behavior.
+- [x] Test all core flows and error states.
+- [x] Run type checks (`tsc --noEmit`), linting (`eslint`), Vitest test suite, and production build.
+- [x] Test approved Chromium browsers.
+- [x] Update `TESTING.md` with actual results.
+- [x] Review release checklist.
 
 **Exit criteria:** P0 acceptance criteria pass, known critical defects are resolved, and remaining limitations are documented.
 

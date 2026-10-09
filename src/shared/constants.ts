@@ -19,5 +19,5 @@ export const DEFAULT_RETENTION_SETTINGS: RetentionSettings = {
   retentionDays: 30,
 };
 
-export const EDIT_LOCK_TIMEOUT_MS = 45000;
+export const EDIT_LOCK_TIMEOUT_MS = 120000; // 2 minutes (safeguards against Chromium 60s background timer throttling)
 export const EDIT_LOCK_HEARTBEAT_INTERVAL_MS = 15000;

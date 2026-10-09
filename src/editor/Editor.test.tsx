@@ -443,5 +443,15 @@ describe('Editor Component — Phase 3 Features', () => {
         expect(screen.getByTestId('report-management-view')).toBeInTheDocument();
       });
     });
+
+    it('displays ReportManagement view when draft ID is not found in storage to prevent dead-ends', async () => {
+      window.history.pushState({}, '', '/editor.html?id=nonexistent-id');
+      render(<Editor />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('editor-error')).toBeInTheDocument();
+        expect(screen.getByTestId('report-management-view')).toBeInTheDocument();
+      });
+    });
   });
 });

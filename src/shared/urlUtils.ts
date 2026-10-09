@@ -32,7 +32,7 @@ export function isRestrictedUrl(url?: string): boolean {
 
 export function getRestrictedUrlMessage(url?: string): string {
   if (!url) {
-    return 'No active page found to capture. Please open a webpage and try again.';
+    return 'No active page found to capture. Chrome restricts extensions from capturing internal pages (such as chrome://extensions, settings, or new tab). Please open a standard webpage (e.g. https://example.com) and try again.';
   }
 
   const trimmed = url.trim().toLowerCase();

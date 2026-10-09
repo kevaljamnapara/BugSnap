@@ -115,6 +115,15 @@ export const Editor: React.FC = () => {
       renewEditLock(draftId, currentSessionId).catch(() => {});
     }, EDIT_LOCK_HEARTBEAT_INTERVAL_MS);
 
+    // Immediate lock renewal upon tab focus or visibility restoration
+    const handleVisibilityOrFocus = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        renewEditLock(draftId, currentSessionId).catch(() => {});
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    window.addEventListener('focus', handleVisibilityOrFocus);
+
     const handleBeforeUnload = () => {
       releaseEditLock(currentSessionId).catch(() => {});
     };
@@ -122,6 +131,8 @@ export const Editor: React.FC = () => {
 
     return () => {
       clearInterval(heartbeatTimer);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
       window.removeEventListener('beforeunload', handleBeforeUnload);
       releaseEditLock(currentSessionId).catch(() => {});
     };
@@ -140,6 +151,9 @@ export const Editor: React.FC = () => {
       annotatedScreenshotDataUrl?: string;
     }) => {
       if (!draft) return;
+
+      // Renew session lock on each save activity
+      renewEditLock(draft.id, sessionIdRef.current).catch(() => {});
 
       setSaveStatus('saving');
       setSaveError(null);
@@ -513,10 +527,13 @@ export const Editor: React.FC = () => {
         </div>
       )}
 
-      {/* Error State */}
+      {/* Error State: Display error message and ReportManagement for recovery */}
       {!isLoading && errorMessage && (
-        <div className="editor-alert editor-alert-error" data-testid="editor-error">
-          <strong>Unable to load draft:</strong> {errorMessage}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <div className="editor-alert editor-alert-error" data-testid="editor-error">
+            <strong>Unable to load draft:</strong> {errorMessage}
+          </div>
+          <ReportManagement onOpenReport={handleOpenReportFromManagement} />
         </div>
       )}
 

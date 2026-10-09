@@ -162,13 +162,29 @@ describe('storage module — Phase 5 Retention & Report Management', () => {
       vi.spyOn(Date, 'now').mockReturnValue(startTime);
       await acquireEditLock('rep-1', 'session-stale');
 
-      // 30 seconds later: still active (timeout is 45s)
-      let locked = await isReportLocked('rep-1', startTime + 30000);
+      // 60 seconds later: still active (safeguards against Chrome 60s background timer throttling)
+      let locked = await isReportLocked('rep-1', startTime + 60000);
       expect(locked).toBe(true);
 
-      // 46 seconds later: expired stale session
-      locked = await isReportLocked('rep-1', startTime + 46000);
+      // 121 seconds later: expired stale session (timeout is 120s)
+      locked = await isReportLocked('rep-1', startTime + 121000);
       expect(locked).toBe(false);
+    });
+
+    it('supports multiple concurrent editor tabs on the SAME report', async () => {
+      const now = Date.now();
+      await acquireEditLock('rep-same', 'tab-1');
+      await acquireEditLock('rep-same', 'tab-2');
+
+      expect(await isReportLocked('rep-same', now)).toBe(true);
+
+      // Closing tab-1 still leaves rep-same protected because tab-2 is actively open
+      await releaseEditLock('tab-1');
+      expect(await isReportLocked('rep-same', now)).toBe(true);
+
+      // Closing tab-2 finally releases rep-same
+      await releaseEditLock('tab-2');
+      expect(await isReportLocked('rep-same', now)).toBe(false);
     });
 
     it('supports multiple concurrent editor tabs across different reports', async () => {
@@ -183,6 +199,35 @@ describe('storage module — Phase 5 Retention & Report Management', () => {
       await releaseEditLock('tab-1');
       expect(await isReportLocked('rep-A', now)).toBe(false);
       expect(await isReportLocked('rep-B', now)).toBe(true);
+    });
+
+    it('purges associated edit locks when a report is deleted', async () => {
+      await acquireEditLock('rep-to-delete', 'session-del-1');
+      expect(await isReportLocked('rep-to-delete')).toBe(true);
+
+      await deleteReport('rep-to-delete');
+      expect(await isReportLocked('rep-to-delete')).toBe(false);
+    });
+
+    it('protects suspended editor tabs when chrome.tabs.query detects open editor tab', async () => {
+      const now = 200000;
+      // Lock is stale (expired in storage)
+      vi.spyOn(Date, 'now').mockReturnValue(now - 150000);
+      await acquireEditLock('rep-suspended', 'session-suspended');
+
+      // In-memory/storage alone would be expired
+      const defaultLocked = await isReportLocked('rep-suspended', now);
+      expect(defaultLocked).toBe(false);
+
+      // But Chrome has the editor tab open (e.g. background tab or suspended tab)
+      const tabsQuerySpy = vi.spyOn(chrome.tabs, 'query').mockResolvedValue([
+        { url: 'chrome-extension://mock-id/editor.html?id=rep-suspended' } as chrome.tabs.Tab,
+      ]);
+
+      const isProtected = await isReportLocked('rep-suspended', now);
+      expect(isProtected).toBe(true);
+
+      tabsQuerySpy.mockRestore();
     });
   });
 
@@ -365,8 +410,8 @@ describe('storage module — Phase 5 Retention & Report Management', () => {
       const oldDate = new Date(fixedNow - 40 * MS_PER_DAY).toISOString();
       await saveReport({ ...baseReport, id: 'rep-stale-lock', updatedAt: oldDate });
 
-      // Lock created 2 minutes before cleanup (timeout is 45s)
-      vi.spyOn(Date, 'now').mockReturnValue(fixedNow - 120000);
+      // Lock created 3 minutes before cleanup (timeout is 120s / 2 minutes)
+      vi.spyOn(Date, 'now').mockReturnValue(fixedNow - 180000);
       await acquireEditLock('rep-stale-lock', 'editor-tab-crashed');
 
       const result = await runRetentionCleanup({

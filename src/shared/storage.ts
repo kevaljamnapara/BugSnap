@@ -109,6 +109,13 @@ export async function listReports(): Promise<BugReport[]> {
 }
 
 export async function deleteReport(id: string): Promise<void> {
+  // Purge any memory locks associated with this report
+  for (const [sessionId, lock] of memoryLocks.entries()) {
+    if (lock.reportId === id) {
+      memoryLocks.delete(sessionId);
+    }
+  }
+
   if (!hasIndexedDB()) {
     memoryStore.delete(id);
     return;
@@ -116,12 +123,25 @@ export async function deleteReport(id: string): Promise<void> {
 
   const db = await openDatabase();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    const store = tx.objectStore(STORE_NAME);
-    const request = store.delete(id);
+    const tx = db.transaction([STORE_NAME, LOCKS_STORE], 'readwrite');
+    const reportStore = tx.objectStore(STORE_NAME);
+    const lockStore = tx.objectStore(LOCKS_STORE);
 
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error ?? new Error(`Failed to delete report ${id}.`));
+    reportStore.delete(id);
+
+    // Also purge any active locks belonging to this reportId to prevent orphaned locks
+    const lockReq = lockStore.getAll();
+    lockReq.onsuccess = () => {
+      const locks = (lockReq.result as ActiveEditLock[]) ?? [];
+      for (const l of locks) {
+        if (l.reportId === id) {
+          lockStore.delete(l.sessionId);
+        }
+      }
+    };
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error ?? new Error(`Failed to delete report ${id}.`));
   });
 }
 
@@ -282,8 +302,35 @@ export async function isReportLocked(
   now = Date.now(),
   timeoutMs = EDIT_LOCK_TIMEOUT_MS,
 ): Promise<boolean> {
+  // 1. Primary check: Unexpired lock in memory / IndexedDB
   const locks = await getActiveLocks();
-  return locks.some((l) => l.reportId === reportId && now - l.lastHeartbeat <= timeoutMs);
+  const hasFreshLock = locks.some((l) => l.reportId === reportId && now - l.lastHeartbeat <= timeoutMs);
+  if (hasFreshLock) {
+    return true;
+  }
+
+  // 2. Secondary defense: Check open browser tabs if chrome.tabs API is accessible (e.g. suspended tab)
+  if (typeof chrome !== 'undefined' && chrome.tabs && typeof chrome.tabs.query === 'function') {
+    try {
+      const openTabs = await chrome.tabs.query({});
+      if (Array.isArray(openTabs)) {
+        const hasOpenEditorTab = openTabs.some((tab) => {
+          if (!tab || !tab.url) return false;
+          return (
+            tab.url.includes(`editor.html?id=${encodeURIComponent(reportId)}`) ||
+            tab.url.includes(`editor.html?id=${reportId}`)
+          );
+        });
+        if (hasOpenEditorTab) {
+          return true;
+        }
+      }
+    } catch {
+      // Gracefully continue if tab query is restricted or unsupported in this context
+    }
+  }
+
+  return false;
 }
 
 /* ==========================================================================

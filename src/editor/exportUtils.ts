@@ -208,6 +208,8 @@ export async function exportReportPackage(
     const screenshotData = report.annotatedScreenshotDataUrl || report.screenshotDataUrl;
     if (screenshotData && screenshotData.startsWith('data:image')) {
       const imgBlob = dataUrlToBlob(screenshotData);
+      // Small tick delay to allow the browser event loop to process the first file download cleanly
+      await new Promise((resolve) => setTimeout(resolve, 150));
       downloadBlob(imgBlob, `${stem}-screenshot.png`);
     }
 
