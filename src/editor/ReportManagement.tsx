@@ -7,8 +7,10 @@ import {
   getRetentionSettings,
   saveRetentionSettings,
   runRetentionCleanup,
+  saveReport,
 } from '../shared/storage';
 import { RETENTION_PERIOD_OPTIONS, DEFAULT_RETENTION_SETTINGS } from '../shared/constants';
+import { duplicateSession, searchSessions } from '../shared/sessionManager';
 
 export interface ReportManagementProps {
   onOpenReport: (reportId: string) => void;
@@ -25,6 +27,7 @@ export const ReportManagement: React.FC<ReportManagementProps> = ({
   const [isLoadingReports, setIsLoadingReports] = useState<boolean>(true);
   const [storageError, setStorageError] = useState<string | null>(null);
   const [filterTab, setFilterTab] = useState<'all' | 'saved' | 'draft'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Retention Settings State
   const [retentionSettings, setRetentionSettings] = useState<RetentionSettings>(
@@ -172,12 +175,21 @@ export const ReportManagement: React.FC<ReportManagementProps> = ({
     }
   };
 
+  const handleDuplicate = async (report: BugReport) => {
+    try {
+      await saveReport(duplicateSession(report));
+      await loadData();
+    } catch (err) {
+      setStorageError(`Failed to duplicate session: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  };
+
   // Filter reports
-  const filteredReports = reports.filter((r) => {
+  const filteredReports = searchSessions(reports.filter((r) => {
     if (filterTab === 'saved') return r.status === 'saved';
     if (filterTab === 'draft') return r.status === 'draft';
     return true;
-  });
+  }), searchQuery);
 
   const savedCount = reports.filter((r) => r.status === 'saved').length;
   const draftCount = reports.filter((r) => r.status === 'draft').length;
@@ -326,6 +338,7 @@ export const ReportManagement: React.FC<ReportManagementProps> = ({
 
       {/* Reports List Section */}
       <section className="reports-section" data-testid="reports-list-section">
+        <input className="form-input" aria-label="Search local sessions" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search sessions" />
         <div className="reports-section-header">
           <div className="reports-tabs" role="tablist" aria-label="Filter reports">
             <button
@@ -443,6 +456,9 @@ export const ReportManagement: React.FC<ReportManagementProps> = ({
                     data-testid={`open-report-btn-${report.id}`}
                   >
                     Open / Edit
+                  </button>
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={() => handleDuplicate(report)}>
+                    Duplicate
                   </button>
                   <button
                     type="button"

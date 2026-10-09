@@ -133,6 +133,7 @@ export interface BugReport {
   annotations?: Annotation[];
   filenameStem?: string;
   debugSession?: DebugSession;
+  sessionLabel?: string;
   createdAt: string;
   updatedAt: string;
 }
