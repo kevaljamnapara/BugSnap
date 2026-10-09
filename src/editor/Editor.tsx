@@ -24,6 +24,7 @@ import { ReproductionStepsRecorder } from './ReproductionStepsRecorder';
 import { EnvironmentDiagnostics } from './EnvironmentDiagnostics';
 import { EvidenceReview } from './EvidenceReview';
 import { generateAiDebugPrompt } from '../shared/aiPrompt';
+import { EvidencePresets } from './EvidencePresets';
 
 export const Editor: React.FC = () => {
   const [draft, setDraft] = useState<BugReport | null>(null);
@@ -752,6 +753,7 @@ export const Editor: React.FC = () => {
           {draft?.debugSession && !isDiscarded && <DebugTimeline session={draft.debugSession} />}
           {draft?.debugSession && !isDiscarded && <EvidenceReview session={draft.debugSession} onChange={handleEvidenceReviewChange} />}
           {draft && !isDiscarded && <EnvironmentDiagnostics metadata={draft.metadata} />}
+          {draft && !isDiscarded && <EvidencePresets />}
           {/* No Draft ID State: Shows guidance and displays ReportManagement below */}
           {!isLoading && !draftId && !errorMessage && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
