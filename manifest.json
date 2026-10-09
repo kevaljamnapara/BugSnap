@@ -5,7 +5,8 @@
   "description": "Privacy-first defect capture and reporting tool for developers and QA testers.",
   "permissions": [
     "activeTab",
-    "storage"
+    "storage",
+    "scripting"
   ],
   "action": {
     "default_popup": "popup.html",

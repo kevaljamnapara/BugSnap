@@ -6,8 +6,8 @@ describe('Privacy and Permissions Invariants — Phase 5 Audit', () => {
     expect(manifest.manifest_version).toBe(3);
   });
 
-  it('restricts manifest permissions strictly to activeTab and storage', () => {
-    expect(manifest.permissions).toEqual(['activeTab', 'storage']);
+  it('restricts manifest permissions strictly to activeTab, storage, and scripting', () => {
+    expect(manifest.permissions).toEqual(['activeTab', 'storage', 'scripting']);
   });
 
   it('does not request Chrome downloads permission (uses browser-native Blob downloads)', () => {

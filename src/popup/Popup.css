@@ -1,18 +1,19 @@
 :root {
-  --bg-primary: #0f172a;
-  --bg-secondary: #1e293b;
+  --bg-primary: #0a0f1d;
+  --bg-secondary: #131d31;
+  --bg-card: #18233a;
   --text-primary: #f8fafc;
   --text-secondary: #94a3b8;
-  --accent: #38bdf8;
-  --accent-hover: #0284c7;
-  --border: #334155;
+  --accent: #00f0ff;
+  --accent-hover: #38bdf8;
+  --border: #22324f;
   --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
 
 body {
   margin: 0;
   padding: 0;
-  width: 320px;
+  width: 330px;
   font-family: var(--font);
   background-color: var(--bg-primary);
   color: var(--text-primary);
@@ -33,11 +34,22 @@ body {
   padding-bottom: 8px;
 }
 
+.popup-title-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.popup-logo-icon {
+  font-size: 16px;
+}
+
 .popup-title {
   margin: 0;
   font-size: 16px;
   font-weight: 700;
   color: var(--accent);
+  letter-spacing: -0.01em;
 }
 
 .popup-badge {
@@ -49,31 +61,145 @@ body {
   border: 1px solid var(--border);
 }
 
-.popup-description {
+.popup-subtitle {
   margin: 0;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--text-secondary);
   line-height: 1.4;
+}
+
+/* Capture Modes Section */
+.capture-modes-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.capture-mode-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  transition: all 0.15s ease;
+  text-align: left;
+  font-family: inherit;
+}
+
+.capture-mode-btn:disabled {
+  cursor: not-allowed;
+}
+
+.capture-mode-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mode-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.mode-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mode-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.mode-desc {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.capture-mode-primary {
+  border-color: rgba(0, 240, 255, 0.4);
+  background: linear-gradient(135deg, rgba(0, 240, 255, 0.12) 0%, rgba(19, 29, 49, 0.8) 100%);
+}
+
+.capture-mode-primary:hover:not(:disabled) {
+  border-color: var(--accent);
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.capture-mode-primary .mode-title {
+  color: #38bdf8;
+}
+
+.capture-mode-secondary:hover:not(:disabled) {
+  border-color: var(--accent-hover);
+  background-color: #1a263e;
+  transform: translateY(-1px);
+}
+
+.capture-mode-disabled {
+  opacity: 0.5;
+  background-color: rgba(19, 29, 49, 0.4);
+  border-color: rgba(34, 50, 79, 0.4);
+}
+
+.mode-shortcut {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  background: rgba(0, 240, 255, 0.15);
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.mode-pill {
+  font-size: 11px;
+  color: var(--text-secondary);
+  background: rgba(148, 163, 184, 0.1);
+  border: 1px solid var(--border);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.mode-badge-na {
+  font-size: 10px;
+  color: #64748b;
+  background: rgba(100, 116, 139, 0.15);
+  padding: 2px 5px;
+  border-radius: 3px;
+}
+
+.popup-divider {
+  height: 1px;
+  background-color: var(--border);
+  margin: 2px 0;
 }
 
 .popup-actions {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-top: 4px;
 }
 
 .btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 10px 14px;
+  padding: 9px 12px;
   border-radius: 6px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   border: none;
-  transition: background-color 0.15s ease;
+  transition: all 0.15s ease;
+  font-family: inherit;
 }
 
 .btn:disabled {
@@ -83,7 +209,7 @@ body {
 
 .btn-primary {
   background-color: var(--accent);
-  color: #0f172a;
+  color: #0a0f1d;
 }
 
 .btn-primary:hover:not(:disabled) {
@@ -97,16 +223,8 @@ body {
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background-color: #273549;
-}
-
-.btn-danger {
-  background-color: #ef4444;
-  color: #ffffff;
-}
-
-.btn-danger:hover:not(:disabled) {
-  background-color: #dc2626;
+  background-color: #1a263e;
+  border-color: var(--accent-hover);
 }
 
 .popup-error {
@@ -140,9 +258,10 @@ body {
 }
 
 .popup-footer {
-  margin-top: 4px;
-  font-size: 11px;
+  margin-top: 2px;
+  font-size: 10px;
   color: var(--text-secondary);
   text-align: center;
+  opacity: 0.8;
 }
 

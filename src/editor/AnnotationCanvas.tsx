@@ -1,6 +1,13 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import './AnnotationCanvas.css';
-import { Annotation, AnnotationType, RectangleAnnotation, ArrowAnnotation, TextAnnotation } from '../shared/types';
+import {
+  Annotation,
+  AnnotationType,
+  RectangleAnnotation,
+  EllipseAnnotation,
+  ArrowAnnotation,
+  TextAnnotation,
+} from '../shared/types';
 import { displayToNaturalCoords, renderAnnotationsToDataUrl } from './annotationUtils';
 
 export interface AnnotationCanvasProps {
@@ -8,6 +15,9 @@ export interface AnnotationCanvasProps {
   annotations: Annotation[];
   onAnnotationsChange: (annotations: Annotation[]) => void;
   onCompositeRendered?: (dataUrl: string) => void;
+  onCopyScreenshot?: () => void;
+  onCopyReport?: () => void;
+  onExportReport?: () => void;
 }
 
 export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
@@ -15,8 +25,12 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
   annotations,
   onAnnotationsChange,
   onCompositeRendered,
+  onCopyScreenshot,
+  onCopyReport,
+  onExportReport,
 }) => {
   const [activeTool, setActiveTool] = useState<AnnotationType | 'view'>('rectangle');
+  const [redoStack, setRedoStack] = useState<Annotation[]>([]);
   const [naturalDimensions, setNaturalDimensions] = useState<{ width: number; height: number }>({
     width: 0,
     height: 0,
@@ -153,7 +167,28 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
           color: '#ef4444',
           strokeWidth,
         };
+        setRedoStack([]);
         onAnnotationsChange([...annotations, newRect]);
+      }
+    } else if (activeTool === 'ellipse') {
+      const cx = (start.x + end.x) / 2;
+      const cy = (start.y + end.y) / 2;
+      const rx = Math.abs(end.x - start.x) / 2;
+      const ry = Math.abs(end.y - start.y) / 2;
+
+      if (rx > 3 && ry > 3) {
+        const newEllipse: EllipseAnnotation = {
+          id,
+          type: 'ellipse',
+          cx,
+          cy,
+          rx,
+          ry,
+          color: '#ef4444',
+          strokeWidth,
+        };
+        setRedoStack([]);
+        onAnnotationsChange([...annotations, newEllipse]);
       }
     } else if (activeTool === 'arrow') {
       const distance = Math.hypot(end.x - start.x, end.y - start.y);
@@ -168,6 +203,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
           color: '#ef4444',
           strokeWidth,
         };
+        setRedoStack([]);
         onAnnotationsChange([...annotations, newArrow]);
       }
     }
@@ -202,13 +238,23 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
     setTextInput('');
   };
 
-  // Undo and Clear
+  // Undo, Redo, and Clear
   const handleUndo = () => {
     if (annotations.length === 0) return;
+    const last = annotations[annotations.length - 1];
+    setRedoStack((prev) => [...prev, last]);
     onAnnotationsChange(annotations.slice(0, -1));
   };
 
+  const handleRedo = () => {
+    if (redoStack.length === 0) return;
+    const next = redoStack[redoStack.length - 1];
+    setRedoStack((prev) => prev.slice(0, -1));
+    onAnnotationsChange([...annotations, next]);
+  };
+
   const handleConfirmClear = () => {
+    setRedoStack([]);
     onAnnotationsChange([]);
     setShowClearConfirm(false);
   };
@@ -240,6 +286,16 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
             title="Draw rectangle annotation"
           >
             Rectangle
+          </button>
+          <button
+            type="button"
+            className={`tool-btn ${activeTool === 'ellipse' ? 'tool-btn-active' : ''}`}
+            onClick={() => setActiveTool('ellipse')}
+            aria-pressed={activeTool === 'ellipse'}
+            data-testid="tool-btn-ellipse"
+            title="Draw ellipse annotation"
+          >
+            Ellipse
           </button>
           <button
             type="button"
@@ -276,6 +332,16 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
           </button>
           <button
             type="button"
+            className="tool-btn"
+            onClick={handleRedo}
+            disabled={redoStack.length === 0}
+            data-testid="tool-btn-redo"
+            title="Redo annotation"
+          >
+            Redo
+          </button>
+          <button
+            type="button"
             className="tool-btn tool-btn-danger"
             onClick={() => setShowClearConfirm(true)}
             disabled={annotations.length === 0}
@@ -285,6 +351,44 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
             Clear All
           </button>
         </div>
+
+        {(onCopyScreenshot || onCopyReport || onExportReport) && (
+          <div className="toolbar-group toolbar-group-actions">
+            {onCopyScreenshot && (
+              <button
+                type="button"
+                className="tool-btn tool-btn-action"
+                onClick={onCopyScreenshot}
+                data-testid="canvas-copy-screenshot-btn"
+                title="Copy screenshot to clipboard"
+              >
+                📋 Copy Image
+              </button>
+            )}
+            {onCopyReport && (
+              <button
+                type="button"
+                className="tool-btn tool-btn-action"
+                onClick={onCopyReport}
+                data-testid="canvas-copy-report-btn"
+                title="Copy Markdown bug report to clipboard"
+              >
+                📝 Copy Report
+              </button>
+            )}
+            {onExportReport && (
+              <button
+                type="button"
+                className="tool-btn tool-btn-action tool-btn-accent"
+                onClick={onExportReport}
+                data-testid="canvas-export-btn"
+                title="Download Markdown report and screenshot evidence"
+              >
+                💾 Export
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Stage: Base Image + Interactive SVG Overlay */}
@@ -332,6 +436,20 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
                     y={item.y}
                     width={item.width}
                     height={item.height}
+                    stroke={item.color || '#ef4444'}
+                    strokeWidth={item.strokeWidth || 4}
+                    fill="transparent"
+                  />
+                );
+              }
+              if (item.type === 'ellipse') {
+                return (
+                  <ellipse
+                    key={item.id}
+                    cx={item.cx}
+                    cy={item.cy}
+                    rx={item.rx}
+                    ry={item.ry}
                     stroke={item.color || '#ef4444'}
                     strokeWidth={item.strokeWidth || 4}
                     fill="transparent"
@@ -390,6 +508,19 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
                 y={Math.min(currentStart.y, currentCurrent.y)}
                 width={Math.abs(currentCurrent.x - currentStart.x)}
                 height={Math.abs(currentCurrent.y - currentStart.y)}
+                stroke="#ef4444"
+                strokeWidth={Math.max(3, Math.round(width / 350))}
+                fill="transparent"
+                strokeDasharray="4 4"
+              />
+            )}
+
+            {isDrawing && currentStart && currentCurrent && activeTool === 'ellipse' && (
+              <ellipse
+                cx={(currentStart.x + currentCurrent.x) / 2}
+                cy={(currentStart.y + currentCurrent.y) / 2}
+                rx={Math.abs(currentCurrent.x - currentStart.x) / 2}
+                ry={Math.abs(currentCurrent.y - currentStart.y) / 2}
                 stroke="#ef4444"
                 strokeWidth={Math.max(3, Math.round(width / 350))}
                 fill="transparent"

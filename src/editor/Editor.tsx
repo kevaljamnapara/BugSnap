@@ -11,8 +11,14 @@ import {
   releaseEditLock,
 } from '../shared/storage';
 import { AnnotationCanvas } from './AnnotationCanvas';
-import { exportReportPackage } from './exportUtils';
+import {
+  exportReportPackage,
+  dataUrlToBlob,
+  generateFilenameStem,
+  generateMarkdownReport,
+} from './exportUtils';
 import { ReportManagement } from './ReportManagement';
+import { cropImageDataUrl } from '../shared/cropUtils';
 
 export const Editor: React.FC = () => {
   const [draft, setDraft] = useState<BugReport | null>(null);
@@ -56,6 +62,10 @@ export const Editor: React.FC = () => {
   const [exportSuccessMessage, setExportSuccessMessage] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
 
+  // Copy Feedback and Error State
+  const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
+  const [copyError, setCopyError] = useState<string | null>(null);
+
   // Discard Draft State
   const [showDiscardModal, setShowDiscardModal] = useState<boolean>(false);
   const [isDiscarding, setIsDiscarding] = useState<boolean>(false);
@@ -69,6 +79,18 @@ export const Editor: React.FC = () => {
     try {
       const loaded = await getReport(id);
       if (loaded) {
+        if (loaded.cropRegion && loaded.screenshotDataUrl) {
+          try {
+            const cropped = await cropImageDataUrl(loaded.screenshotDataUrl, loaded.cropRegion);
+            if (cropped && cropped !== loaded.screenshotDataUrl) {
+              loaded.screenshotDataUrl = cropped;
+              loaded.cropRegion = undefined;
+              await saveReport(loaded);
+            }
+          } catch {
+            // Safe fallback to original screenshot
+          }
+        }
         setDraft(loaded);
         setTitle(loaded.title || '');
         setSeverity(loaded.severity || 'Medium');
@@ -304,9 +326,10 @@ export const Editor: React.FC = () => {
     setExportError(null);
     setExportSuccessMessage(null);
 
+    const effectiveTitle = title.trim() || draft.metadata.title || 'Untitled Bug';
     const reportToExport: BugReport = {
       ...draft,
-      title: title.trim(),
+      title: effectiveTitle,
       severity,
       reproductionSteps,
       expectedBehavior,
@@ -325,6 +348,74 @@ export const Editor: React.FC = () => {
       );
     } else {
       setExportError(result.error || 'Failed to export report package.');
+    }
+  };
+
+  // Copy Screenshot directly to clipboard
+  const handleCopyScreenshot = async () => {
+    setCopyError(null);
+    setCopyFeedback(null);
+    try {
+      const dataUrl = annotatedScreenshotDataUrl || draft?.screenshotDataUrl;
+      if (!dataUrl) {
+        setCopyError('No screenshot available to copy.');
+        return;
+      }
+      const blob = dataUrlToBlob(dataUrl);
+      if (
+        typeof ClipboardItem !== 'undefined' &&
+        navigator.clipboard &&
+        typeof navigator.clipboard.write === 'function'
+      ) {
+        await navigator.clipboard.write([
+          new ClipboardItem({ 'image/png': blob }),
+        ]);
+        setCopyFeedback('Screenshot copied to clipboard!');
+        setTimeout(() => setCopyFeedback(null), 3500);
+      } else {
+        setCopyError(
+          'Clipboard image copy is not supported in this browser. You can right-click the screenshot to copy it, or use Export Report.',
+        );
+      }
+    } catch (err) {
+      setCopyError(
+        `Failed to copy screenshot: ${err instanceof Error ? err.message : String(err)}. You can right-click the image to copy it, or use Export Report.`,
+      );
+    }
+  };
+
+  // Copy Bug Report as Markdown to clipboard
+  const handleCopyReport = async () => {
+    if (!draft) return;
+    setCopyError(null);
+    setCopyFeedback(null);
+    try {
+      const effectiveTitle = title.trim() || draft.metadata.title || 'Untitled Bug';
+      const stem = generateFilenameStem(effectiveTitle, draft.metadata.capturedAt);
+      const mdContent = generateMarkdownReport(
+        {
+          ...draft,
+          title: effectiveTitle,
+          severity,
+          reproductionSteps,
+          expectedBehavior,
+          actualBehavior,
+          additionalNotes,
+        },
+        stem,
+      );
+
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        await navigator.clipboard.writeText(mdContent);
+        setCopyFeedback('Bug report Markdown copied to clipboard!');
+        setTimeout(() => setCopyFeedback(null), 3500);
+      } else {
+        setCopyError('Clipboard writeText is not supported in this browser environment.');
+      }
+    } catch (err) {
+      setCopyError(
+        `Failed to copy bug report: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
   };
 
@@ -404,6 +495,32 @@ export const Editor: React.FC = () => {
             {viewMode === 'editor' ? 'Manage Reports & Settings' : '← Back to Editor'}
           </button>
 
+          {/* Copy Screenshot Button */}
+          {draft && !isDiscarded && viewMode === 'editor' && (
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={handleCopyScreenshot}
+              data-testid="copy-screenshot-btn"
+              title="Copy screenshot image to clipboard"
+            >
+              Copy Screenshot
+            </button>
+          )}
+
+          {/* Copy Bug Report Button */}
+          {draft && !isDiscarded && viewMode === 'editor' && (
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={handleCopyReport}
+              data-testid="copy-report-btn"
+              title="Copy Markdown bug report to clipboard"
+            >
+              Copy Report
+            </button>
+          )}
+
           {/* Discard Draft Button */}
           {draft && !isDiscarded && viewMode === 'editor' && (
             <button
@@ -468,6 +585,23 @@ export const Editor: React.FC = () => {
                 {isDiscarding ? 'Deleting...' : 'Discard and Delete'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Copy Feedback and Error Alerts */}
+      {copyFeedback && (
+        <div className="editor-alert editor-alert-info" role="status" data-testid="copy-feedback-alert">
+          <div>
+            <strong>Clipboard:</strong> {copyFeedback}
+          </div>
+        </div>
+      )}
+
+      {copyError && (
+        <div className="editor-alert editor-alert-error" role="alert" data-testid="copy-error-alert">
+          <div>
+            <strong>Clipboard Notice:</strong> {copyError}
           </div>
         </div>
       )}
@@ -708,6 +842,9 @@ export const Editor: React.FC = () => {
                         annotations={annotations}
                         onAnnotationsChange={handleAnnotationsChange}
                         onCompositeRendered={handleCompositeRendered}
+                        onCopyScreenshot={handleCopyScreenshot}
+                        onCopyReport={handleCopyReport}
+                        onExportReport={handleExport}
                       />
                       <div className="screenshot-footer">
                         <span>Captured tab viewport</span>

@@ -123,6 +123,35 @@ describe('exportUtils', () => {
       const md = generateMarkdownReport(reportNoEnv, 'stem-2');
       expect(md).not.toContain('Browser / OS');
     });
+
+    it('formats diagnostic evidence table and page errors when present', () => {
+      const reportWithDiagnostics: BugReport = {
+        ...mockReport,
+        metadata: {
+          ...mockReport.metadata,
+          diagnostics: {
+            jsErrors: ['Uncaught TypeError: Cannot read property "foo" of undefined'],
+            resourceTimings: [
+              {
+                name: 'https://example.com/api/data?token=[REDACTED]',
+                initiatorType: 'fetch',
+                duration: 120,
+                transferSize: 4096,
+              },
+            ],
+          },
+        },
+      };
+
+      const md = generateMarkdownReport(reportWithDiagnostics, 'stem-diag');
+      expect(md).toContain('## Diagnostic Evidence');
+      expect(md).toContain('### Recorded Page Errors');
+      expect(md).toContain('Cannot read property "foo" of undefined');
+      expect(md).toContain('### Network & Resource Timings');
+      expect(md).toContain('https://example.com/api/data?token=[REDACTED]');
+      expect(md).toContain('120ms');
+      expect(md).toContain('4 KB');
+    });
   });
 
   describe('dataUrlToBlob', () => {

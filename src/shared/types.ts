@@ -2,7 +2,7 @@ export type Severity = 'Low' | 'Medium' | 'High' | 'Critical';
 
 export type ReportStatus = 'draft' | 'saved';
 
-export type AnnotationType = 'rectangle' | 'arrow' | 'text';
+export type AnnotationType = 'rectangle' | 'ellipse' | 'arrow' | 'text';
 
 export interface BaseAnnotation {
   id: string;
@@ -16,6 +16,15 @@ export interface RectangleAnnotation extends BaseAnnotation {
   y: number;
   width: number;
   height: number;
+  strokeWidth: number;
+}
+
+export interface EllipseAnnotation extends BaseAnnotation {
+  type: 'ellipse';
+  cx: number;
+  cy: number;
+  rx: number;
+  ry: number;
   strokeWidth: number;
 }
 
@@ -36,7 +45,31 @@ export interface TextAnnotation extends BaseAnnotation {
   fontSize: number;
 }
 
-export type Annotation = RectangleAnnotation | ArrowAnnotation | TextAnnotation;
+export type Annotation =
+  | RectangleAnnotation
+  | EllipseAnnotation
+  | ArrowAnnotation
+  | TextAnnotation;
+
+export interface CropRegion {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  devicePixelRatio?: number;
+}
+
+export type CaptureMode = 'viewport' | 'region';
+
+export interface DiagnosticEvidence {
+  resourceTimings?: Array<{
+    name: string;
+    initiatorType: string;
+    duration: number;
+    transferSize?: number;
+  }>;
+  jsErrors?: string[];
+}
 
 export interface PageMetadata {
   url: string;
@@ -48,6 +81,8 @@ export interface PageMetadata {
     width: number;
     height: number;
   };
+  captureMode?: CaptureMode;
+  diagnostics?: DiagnosticEvidence;
 }
 
 export interface BugReport {
@@ -61,6 +96,7 @@ export interface BugReport {
   additionalNotes: string;
   metadata: PageMetadata;
   screenshotDataUrl?: string;
+  cropRegion?: CropRegion;
   annotatedScreenshotDataUrl?: string;
   annotations?: Annotation[];
   filenameStem?: string;

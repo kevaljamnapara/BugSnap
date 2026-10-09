@@ -71,6 +71,16 @@ export async function renderAnnotationsToDataUrl(
       ctx.strokeStyle = item.color || '#ef4444';
       ctx.lineWidth = item.strokeWidth || 4;
       ctx.strokeRect(item.x, item.y, item.width, item.height);
+    } else if (item.type === 'ellipse') {
+      ctx.strokeStyle = item.color || '#ef4444';
+      ctx.lineWidth = item.strokeWidth || 4;
+      ctx.beginPath();
+      if (typeof ctx.ellipse === 'function') {
+        ctx.ellipse(item.cx, item.cy, item.rx, item.ry, 0, 0, 2 * Math.PI);
+      } else {
+        ctx.arc(item.cx, item.cy, Math.max(item.rx, item.ry), 0, 2 * Math.PI);
+      }
+      ctx.stroke();
     } else if (item.type === 'arrow') {
       const strokeWidth = item.strokeWidth || 4;
       const color = item.color || '#ef4444';

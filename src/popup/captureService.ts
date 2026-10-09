@@ -1,7 +1,8 @@
-import { BugReport, PageMetadata } from '../shared/types';
+import { BugReport, PageMetadata, CaptureMode } from '../shared/types';
 import { DEFAULT_SEVERITY } from '../shared/constants';
 import { generateDraftId, saveReport } from '../shared/storage';
 import { isRestrictedUrl, getRestrictedUrlMessage } from '../shared/urlUtils';
+import { initSelectionOverlay } from '../content/selectionOverlay';
 
 export interface CaptureResult {
   success: boolean;
@@ -9,7 +10,68 @@ export interface CaptureResult {
   error?: string;
 }
 
-export async function captureActiveTab(): Promise<CaptureResult> {
+export async function startRegionCapture(): Promise<CaptureResult> {
+  if (typeof chrome === 'undefined' || !chrome.tabs) {
+    return {
+      success: false,
+      error: 'Chrome extension APIs are not available in this environment.',
+    };
+  }
+
+  // 1. Locate active tab
+  let tabs: chrome.tabs.Tab[] = [];
+  try {
+    tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+  } catch (err) {
+    return {
+      success: false,
+      error: `Failed to query active tab: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+
+  const activeTab = tabs[0];
+  if (!activeTab || !activeTab.id) {
+    return {
+      success: false,
+      error: 'No active tab found in the current window. Please select a tab and try again.',
+    };
+  }
+
+  // 2. Validate against restricted pages
+  if (isRestrictedUrl(activeTab.url)) {
+    return {
+      success: false,
+      error: getRestrictedUrlMessage(activeTab.url),
+    };
+  }
+
+  // 3. Inject selection overlay into page
+  try {
+    if (chrome.scripting && typeof chrome.scripting.executeScript === 'function') {
+      await chrome.scripting.executeScript({
+        target: { tabId: activeTab.id },
+        func: initSelectionOverlay,
+      });
+      return { success: true };
+    } else {
+      return {
+        success: false,
+        error: 'Chrome scripting API is not available in this environment.',
+      };
+    }
+  } catch (err) {
+    return {
+      success: false,
+      error: `Failed to initialize region capture: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+}
+
+export async function captureActiveTab(mode: CaptureMode = 'viewport'): Promise<CaptureResult> {
+  if (mode === 'region') {
+    return startRegionCapture();
+  }
+
   if (typeof chrome === 'undefined' || !chrome.tabs) {
     return {
       success: false,
@@ -68,6 +130,7 @@ export async function captureActiveTab(): Promise<CaptureResult> {
     url: activeTab.url ?? '',
     title: activeTab.title ?? '',
     capturedAt: new Date().toISOString(),
+    captureMode: 'viewport',
   };
 
   if (activeTab.width && activeTab.height) {

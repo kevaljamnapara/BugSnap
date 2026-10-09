@@ -147,3 +147,32 @@
   gap: 8px;
   margin-top: 12px;
 }
+
+.toolbar-group-actions {
+  margin-left: auto;
+  border-left: 1px solid var(--border-subtle);
+  padding-left: 8px;
+}
+
+.tool-btn-action {
+  background-color: var(--bg-card-secondary);
+  color: var(--text-main);
+  border: 1px solid var(--border-subtle);
+}
+
+.tool-btn-action:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.tool-btn-accent {
+  background-color: rgba(56, 189, 248, 0.15);
+  color: var(--primary);
+  border-color: rgba(56, 189, 248, 0.4);
+}
+
+.tool-btn-accent:hover:not(:disabled) {
+  background-color: var(--primary);
+  color: #0b0f19;
+}
+

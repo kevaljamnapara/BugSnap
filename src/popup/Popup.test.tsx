@@ -153,4 +153,25 @@ describe('Popup Component', () => {
       url: 'chrome-extension://mock-extension-id/editor.html',
     });
   });
+
+  it('triggers captureActiveTab with region mode when Select Region is clicked', async () => {
+    const captureSpy = vi.spyOn(captureService, 'captureActiveTab').mockResolvedValue({
+      success: true,
+    });
+
+    render(<Popup />);
+    const regionBtn = screen.getByTestId('capture-region-btn');
+    await waitFor(async () => {
+      fireEvent.click(regionBtn);
+    });
+
+    expect(captureSpy).toHaveBeenCalledWith('region');
+  });
+
+  it('renders Full Page capture button as disabled with explanatory title', () => {
+    render(<Popup />);
+    const fullPageBtn = screen.getByTestId('capture-fullpage-btn');
+    expect(fullPageBtn).toBeDisabled();
+    expect(fullPageBtn).toHaveAttribute('title', expect.stringContaining('privacy'));
+  });
 });

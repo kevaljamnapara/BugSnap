@@ -453,5 +453,84 @@ describe('Editor Component — Phase 3 Features', () => {
         expect(screen.getByTestId('report-management-view')).toBeInTheDocument();
       });
     });
+
+    it('copies bug report Markdown to clipboard with user feedback', async () => {
+      await storage.saveReport(mockDraft);
+      window.history.pushState({}, '', `/editor.html?id=${mockDraft.id}`);
+
+      // Mock navigator.clipboard
+      const writeTextMock = vi.fn().mockResolvedValue(undefined);
+      Object.assign(navigator, {
+        clipboard: {
+          writeText: writeTextMock,
+          write: vi.fn(),
+        },
+      });
+
+      render(<Editor />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('copy-report-btn')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByTestId('copy-report-btn'));
+
+      await waitFor(() => {
+        expect(writeTextMock).toHaveBeenCalled();
+        expect(screen.getByTestId('copy-feedback-alert')).toHaveTextContent(/Markdown copied/i);
+      });
+    });
+
+    it('displays user-visible notice when screenshot clipboard copying encounters an error', async () => {
+      await storage.saveReport(mockDraft);
+      window.history.pushState({}, '', `/editor.html?id=${mockDraft.id}`);
+
+      // Mock ClipboardItem and write failure
+      (globalThis as unknown as { ClipboardItem: unknown }).ClipboardItem = class MockClipboardItem {
+        constructor(public data: unknown) {}
+      };
+
+      const writeMock = vi.fn().mockRejectedValue(new Error('Permission denied'));
+      Object.assign(navigator, {
+        clipboard: {
+          write: writeMock,
+          writeText: vi.fn(),
+        },
+      });
+
+      render(<Editor />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('copy-screenshot-btn')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByTestId('copy-screenshot-btn'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('copy-error-alert')).toBeInTheDocument();
+        expect(screen.getByTestId('copy-error-alert')).toHaveTextContent(/Failed to copy screenshot/i);
+      });
+    });
+
+    it('displays user-visible notice when clipboard image copy is unsupported', async () => {
+      await storage.saveReport(mockDraft);
+      window.history.pushState({}, '', `/editor.html?id=${mockDraft.id}`);
+
+      // Ensure ClipboardItem is undefined
+      delete (globalThis as unknown as { ClipboardItem?: unknown }).ClipboardItem;
+
+      render(<Editor />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('copy-screenshot-btn')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByTestId('copy-screenshot-btn'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('copy-error-alert')).toBeInTheDocument();
+        expect(screen.getByTestId('copy-error-alert')).toHaveTextContent(/Clipboard image copy is not supported/i);
+      });
+    });
   });
 });

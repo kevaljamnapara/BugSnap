@@ -122,8 +122,31 @@ export function generateMarkdownReport(report: BugReport, filenameStem: string):
   const expected = report.expectedBehavior.trim() || 'Not specified.';
   const actual = report.actualBehavior.trim() || 'Not specified.';
   const notes = report.additionalNotes.trim() || 'None';
-
   const screenshotFilename = `${filenameStem}-screenshot.png`;
+
+  let diagnosticsSection = '';
+  if (report.metadata.diagnostics) {
+    const { resourceTimings, jsErrors } = report.metadata.diagnostics;
+    const items: string[] = [];
+    if (jsErrors && jsErrors.length > 0) {
+      items.push(`### Recorded Page Errors\n` + jsErrors.map((e) => `- \`${escapeMarkdownTableCell(e)}\``).join('\n'));
+    }
+    if (resourceTimings && resourceTimings.length > 0) {
+      const timingRows = resourceTimings.slice(0, 15).map(
+        (t) =>
+          `| \`${escapeMarkdownTableCell(t.name)}\` | ${escapeMarkdownTableCell(t.initiatorType)} | ${t.duration}ms | ${t.transferSize !== undefined ? `${Math.round(t.transferSize / 1024)} KB` : 'Cached/N/A'} |`,
+      );
+      items.push(
+        `### Network & Resource Timings\n` +
+          `| Resource URL | Initiator | Duration | Size |\n` +
+          `| :--- | :--- | :--- | :--- |\n` +
+          timingRows.join('\n'),
+      );
+    }
+    if (items.length > 0) {
+      diagnosticsSection = `\n## Diagnostic Evidence\n${items.join('\n\n')}\n`;
+    }
+  }
 
   return `# [BugSnap] ${title}
 
@@ -143,7 +166,7 @@ ${actual}
 
 ## Additional Notes
 ${notes}
-
+${diagnosticsSection}
 ---
 *Report generated locally with BugSnap (₹0, privacy-first).*
 `;

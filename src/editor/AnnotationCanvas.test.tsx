@@ -55,16 +55,35 @@ describe('AnnotationCanvas Component', () => {
     expect(screen.getByRole('toolbar', { name: /annotation tools/i })).toBeInTheDocument();
     expect(screen.getByTestId('tool-btn-view')).toBeInTheDocument();
     expect(screen.getByTestId('tool-btn-rectangle')).toBeInTheDocument();
+    expect(screen.getByTestId('tool-btn-ellipse')).toBeInTheDocument();
     expect(screen.getByTestId('tool-btn-arrow')).toBeInTheDocument();
     expect(screen.getByTestId('tool-btn-text')).toBeInTheDocument();
 
     // Default tool is rectangle
     expect(screen.getByTestId('tool-btn-rectangle')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('tool-btn-ellipse')).toHaveAttribute('aria-pressed', 'false');
     expect(screen.getByTestId('tool-btn-arrow')).toHaveAttribute('aria-pressed', 'false');
 
-    // Undo & Clear disabled when empty
+    // Undo, Redo & Clear disabled when empty
     expect(screen.getByTestId('tool-btn-undo')).toBeDisabled();
+    expect(screen.getByTestId('tool-btn-redo')).toBeDisabled();
     expect(screen.getByTestId('tool-btn-clear')).toBeDisabled();
+  });
+
+  it('switches to ellipse tool when clicked', () => {
+    render(
+      <AnnotationCanvas
+        imageSrc={mockImageSrc}
+        annotations={[]}
+        onAnnotationsChange={vi.fn()}
+      />,
+    );
+
+    const ellipseBtn = screen.getByTestId('tool-btn-ellipse');
+    fireEvent.click(ellipseBtn);
+
+    expect(ellipseBtn).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('tool-btn-rectangle')).toHaveAttribute('aria-pressed', 'false');
   });
 
   it('switches active tools when buttons are clicked', () => {

@@ -125,4 +125,41 @@ describe('captureService', () => {
     expect(result.success).toBe(true);
     expect(result.draft?.metadata.viewport).toBeUndefined();
   });
+
+  it('injects selection overlay via chrome.scripting.executeScript for region capture', async () => {
+    const mockTab = {
+      id: 55,
+      url: 'https://example.com/app',
+      title: 'App',
+      windowId: 1,
+    } as chrome.tabs.Tab;
+
+    (chrome.tabs.query as unknown as ReturnType<typeof vi.fn>).mockResolvedValue([mockTab]);
+    (chrome.scripting.executeScript as unknown as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+
+    const result = await captureActiveTab('region');
+
+    expect(result.success).toBe(true);
+    expect(chrome.scripting.executeScript).toHaveBeenCalledWith({
+      target: { tabId: 55 },
+      func: expect.any(Function),
+    });
+  });
+
+  it('rejects region capture on restricted pages before script injection', async () => {
+    const mockTab = {
+      id: 56,
+      url: 'chrome://extensions',
+      title: 'Extensions',
+      windowId: 1,
+    } as chrome.tabs.Tab;
+
+    (chrome.tabs.query as unknown as ReturnType<typeof vi.fn>).mockResolvedValue([mockTab]);
+
+    const result = await captureActiveTab('region');
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('Browser internal pages');
+    expect(chrome.scripting.executeScript).not.toHaveBeenCalled();
+  });
 });

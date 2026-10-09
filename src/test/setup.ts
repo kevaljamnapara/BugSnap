@@ -8,12 +8,22 @@ export const chromeMock = {
     onInstalled: {
       addListener: vi.fn(),
     },
+    onStartup: {
+      addListener: vi.fn(),
+    },
+    sendMessage: vi.fn(),
+    onMessage: {
+      addListener: vi.fn(),
+    },
     lastError: undefined,
   },
   tabs: {
     query: vi.fn(),
     captureVisibleTab: vi.fn(),
     create: vi.fn(),
+  },
+  scripting: {
+    executeScript: vi.fn(),
   },
   storage: {
     local: {
