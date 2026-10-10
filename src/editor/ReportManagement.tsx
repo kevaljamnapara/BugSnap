@@ -7,8 +7,10 @@ import {
   getRetentionSettings,
   saveRetentionSettings,
   runRetentionCleanup,
+  saveReport,
 } from '../shared/storage';
 import { RETENTION_PERIOD_OPTIONS, DEFAULT_RETENTION_SETTINGS } from '../shared/constants';
+import { createSession, duplicateSession, renameSession, searchSessions } from '../shared/sessionManager';
 
 export interface ReportManagementProps {
   onOpenReport: (reportId: string) => void;
@@ -25,6 +27,7 @@ export const ReportManagement: React.FC<ReportManagementProps> = ({
   const [isLoadingReports, setIsLoadingReports] = useState<boolean>(true);
   const [storageError, setStorageError] = useState<string | null>(null);
   const [filterTab, setFilterTab] = useState<'all' | 'saved' | 'draft'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Retention Settings State
   const [retentionSettings, setRetentionSettings] = useState<RetentionSettings>(
@@ -42,6 +45,13 @@ export const ReportManagement: React.FC<ReportManagementProps> = ({
   const [reportToDelete, setReportToDelete] = useState<BugReport | null>(null);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // Session Renaming Modal State
+  const [reportToRename, setReportToRename] = useState<BugReport | null>(null);
+  const [renameTitle, setRenameTitle] = useState('');
+  const [renameLabel, setRenameLabel] = useState('');
+  const [renameError, setRenameError] = useState<string | null>(null);
+  const [isRenaming, setIsRenaming] = useState<boolean>(false);
 
   // Load reports and settings
   const loadData = useCallback(async () => {
@@ -172,12 +182,60 @@ export const ReportManagement: React.FC<ReportManagementProps> = ({
     }
   };
 
+  const handleOpenRename = (report: BugReport) => {
+    setRenameError(null);
+    setRenameTitle(report.title || '');
+    setRenameLabel(report.sessionLabel || '');
+    setReportToRename(report);
+  };
+
+  const handleCancelRename = () => {
+    setReportToRename(null);
+    setRenameError(null);
+  };
+
+  const handleConfirmRename = async () => {
+    if (!reportToRename) return;
+    setIsRenaming(true);
+    setRenameError(null);
+    try {
+      const updated = renameSession(reportToRename, renameTitle, renameLabel);
+      await saveReport(updated);
+      setReportToRename(null);
+      await loadData();
+    } catch (err) {
+      setRenameError(`Failed to rename session: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setIsRenaming(false);
+    }
+  };
+
+  const handleCreateSession = async () => {
+    try {
+      const created = createSession();
+      await saveReport(created);
+      await loadData();
+      onOpenReport(created.id);
+    } catch (err) {
+      setStorageError(`Failed to create session: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  };
+
+  const handleDuplicate = async (report: BugReport) => {
+    try {
+      await saveReport(duplicateSession(report));
+      await loadData();
+    } catch (err) {
+      setStorageError(`Failed to duplicate session: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  };
+
   // Filter reports
-  const filteredReports = reports.filter((r) => {
+  const filteredReports = searchSessions(reports.filter((r) => {
     if (filterTab === 'saved') return r.status === 'saved';
     if (filterTab === 'draft') return r.status === 'draft';
     return true;
-  });
+  }), searchQuery);
 
   const savedCount = reports.filter((r) => r.status === 'saved').length;
   const draftCount = reports.filter((r) => r.status === 'draft').length;
@@ -193,8 +251,16 @@ export const ReportManagement: React.FC<ReportManagementProps> = ({
           </span>
         </div>
 
-        {currentReportId && onBackToEditor && (
-          <div className="management-actions">
+        <div className="management-actions">
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={handleCreateSession}
+            data-testid="create-session-btn"
+          >
+            + New Session
+          </button>
+          {currentReportId && onBackToEditor && (
             <button
               type="button"
               className="btn btn-secondary btn-sm"
@@ -203,8 +269,8 @@ export const ReportManagement: React.FC<ReportManagementProps> = ({
             >
               ← Back to Active Editor
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Storage Error Alert */}
@@ -326,6 +392,14 @@ export const ReportManagement: React.FC<ReportManagementProps> = ({
 
       {/* Reports List Section */}
       <section className="reports-section" data-testid="reports-list-section">
+        <input
+          className="form-input"
+          aria-label="Search local sessions"
+          value={searchQuery}
+          onChange={(event) => setSearchQuery(event.target.value)}
+          placeholder="Search sessions by title, label, or URL..."
+          data-testid="search-sessions-input"
+        />
         <div className="reports-section-header">
           <div className="reports-tabs" role="tablist" aria-label="Filter reports">
             <button
@@ -402,6 +476,14 @@ export const ReportManagement: React.FC<ReportManagementProps> = ({
                     <span className="badge badge-id" data-testid={`badge-severity-${report.id}`}>
                       {report.severity}
                     </span>
+                    {report.sessionLabel && (
+                      <span
+                        className="badge badge-session-label"
+                        data-testid={`badge-session-label-${report.id}`}
+                      >
+                        {report.sessionLabel}
+                      </span>
+                    )}
                     <h3 className="report-item-title" data-testid={`report-title-${report.id}`}>
                       {report.title.trim() || 'Untitled Bug'}
                     </h3>
@@ -446,6 +528,22 @@ export const ReportManagement: React.FC<ReportManagementProps> = ({
                   </button>
                   <button
                     type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => handleOpenRename(report)}
+                    data-testid={`rename-session-btn-${report.id}`}
+                  >
+                    Rename
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => handleDuplicate(report)}
+                    data-testid={`duplicate-session-btn-${report.id}`}
+                  >
+                    Duplicate
+                  </button>
+                  <button
+                    type="button"
                     className="btn btn-danger-outline btn-sm"
                     onClick={() => handleOpenDeleteModal(report)}
                     data-testid={`delete-report-btn-${report.id}`}
@@ -458,6 +556,82 @@ export const ReportManagement: React.FC<ReportManagementProps> = ({
           </div>
         )}
       </section>
+
+      {/* Rename Session Modal */}
+      {reportToRename && (
+        <div
+          className="modal-backdrop"
+          role="dialog"
+          aria-modal="true"
+          data-testid="rename-session-modal"
+        >
+          <div className="modal-dialog">
+            <h3 className="modal-title">Rename Debug Session</h3>
+            <p className="modal-body" style={{ margin: '0 0 12px 0' }}>
+              Update the session title and optional label for tracking.
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 13, marginBottom: 4, fontWeight: 600 }}>
+                  Title
+                </label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={renameTitle}
+                  onChange={(e) => setRenameTitle(e.target.value)}
+                  placeholder="Session title"
+                  data-testid="rename-title-input"
+                  style={{ width: '100%' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: 13, marginBottom: 4, fontWeight: 600 }}>
+                  Session Label (optional)
+                </label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={renameLabel}
+                  onChange={(e) => setRenameLabel(e.target.value)}
+                  placeholder="e.g. Sprint 24, Staging Smoke Test"
+                  data-testid="rename-label-input"
+                  style={{ width: '100%' }}
+                />
+              </div>
+            </div>
+
+            {renameError && (
+              <div className="editor-alert editor-alert-error" style={{ marginBottom: 16 }}>
+                {renameError}
+              </div>
+            )}
+
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={handleCancelRename}
+                disabled={isRenaming}
+                data-testid="cancel-rename-btn"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={handleConfirmRename}
+                disabled={isRenaming}
+                data-testid="confirm-rename-btn"
+              >
+                {isRenaming ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Manual Delete Confirmation Modal */}
       {reportToDelete && (

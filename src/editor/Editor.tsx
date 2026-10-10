@@ -16,11 +16,17 @@ import {
   dataUrlToBlob,
   generateFilenameStem,
   generateMarkdownReport,
+  downloadBlob,
 } from './exportUtils';
 import { ReportManagement } from './ReportManagement';
 import { cropImageDataUrl } from '../shared/cropUtils';
 import { DebugTimeline } from './DebugTimeline';
 import { ReproductionStepsRecorder } from './ReproductionStepsRecorder';
+import { EnvironmentDiagnostics } from './EnvironmentDiagnostics';
+import { EvidenceReview } from './EvidenceReview';
+import { generateAiDebugPrompt } from '../shared/aiPrompt';
+import { EvidencePresets } from './EvidencePresets';
+import { createPortableBundle } from '../shared/portableBundle';
 
 export const Editor: React.FC = () => {
   const [draft, setDraft] = useState<BugReport | null>(null);
@@ -38,6 +44,7 @@ export const Editor: React.FC = () => {
 
   // Form Fields State
   const [title, setTitle] = useState<string>('');
+  const [sessionLabel, setSessionLabel] = useState<string>('');
   const [severity, setSeverity] = useState<Severity>('Medium');
   const [reproductionSteps, setReproductionSteps] = useState<string>('');
   const [expectedBehavior, setExpectedBehavior] = useState<string>('');
@@ -95,6 +102,7 @@ export const Editor: React.FC = () => {
         }
         setDraft(loaded);
         setTitle(loaded.title || '');
+        setSessionLabel(loaded.sessionLabel || '');
         setSeverity(loaded.severity || 'Medium');
         setReproductionSteps(loaded.reproductionSteps || '');
         setExpectedBehavior(loaded.expectedBehavior || '');
@@ -166,6 +174,7 @@ export const Editor: React.FC = () => {
   const triggerSave = useCallback(
     async (updatedFields: {
       title: string;
+      sessionLabel?: string;
       severity: Severity;
       reproductionSteps: string;
       expectedBehavior: string;
@@ -213,13 +222,14 @@ export const Editor: React.FC = () => {
 
   // Debounced Autosave Trigger for form fields
   const handleFieldChange = (
-    field: 'title' | 'severity' | 'reproductionSteps' | 'expectedBehavior' | 'actualBehavior' | 'additionalNotes',
+    field: 'title' | 'sessionLabel' | 'severity' | 'reproductionSteps' | 'expectedBehavior' | 'actualBehavior' | 'additionalNotes',
     value: string,
   ) => {
     isDirtyRef.current = true;
 
     const newValues = {
       title: field === 'title' ? value : title,
+      sessionLabel: field === 'sessionLabel' ? value : sessionLabel,
       severity: field === 'severity' ? (value as Severity) : severity,
       reproductionSteps: field === 'reproductionSteps' ? value : reproductionSteps,
       expectedBehavior: field === 'expectedBehavior' ? value : expectedBehavior,
@@ -228,6 +238,7 @@ export const Editor: React.FC = () => {
     };
 
     if (field === 'title') setTitle(value);
+    if (field === 'sessionLabel') setSessionLabel(value);
     if (field === 'severity') setSeverity(value as Severity);
     if (field === 'reproductionSteps') setReproductionSteps(value);
     if (field === 'expectedBehavior') setExpectedBehavior(value);
@@ -257,6 +268,7 @@ export const Editor: React.FC = () => {
       }
       triggerSave({
         title,
+        sessionLabel,
         severity,
         reproductionSteps,
         expectedBehavior,
@@ -332,6 +344,7 @@ export const Editor: React.FC = () => {
     const reportToExport: BugReport = {
       ...draft,
       title: effectiveTitle,
+      sessionLabel: sessionLabel.trim() || undefined,
       severity,
       reproductionSteps,
       expectedBehavior,
@@ -350,6 +363,40 @@ export const Editor: React.FC = () => {
       );
     } else {
       setExportError(result.error || 'Failed to export report package.');
+    }
+  };
+
+  // Export Portable ZIP Bundle Flow
+  const handleExportZip = () => {
+    if (!draft) return;
+
+    setIsExporting(true);
+    setExportError(null);
+    setExportSuccessMessage(null);
+
+    try {
+      const effectiveTitle = title.trim() || draft.metadata.title || 'Untitled Bug';
+      const reportToExport: BugReport = {
+        ...draft,
+        title: effectiveTitle,
+        sessionLabel: sessionLabel.trim() || undefined,
+        severity,
+        reproductionSteps,
+        expectedBehavior,
+        actualBehavior,
+        additionalNotes,
+        annotations,
+        annotatedScreenshotDataUrl,
+      };
+
+      const zipBlob = createPortableBundle(reportToExport);
+      const stem = generateFilenameStem(reportToExport.title, reportToExport.metadata.capturedAt);
+      downloadBlob(zipBlob, `${stem}.zip`);
+      setExportSuccessMessage(`Portable ZIP bundle exported successfully (${stem}.zip).`);
+    } catch (err) {
+      setExportError(`Failed to export ZIP bundle: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -481,6 +528,19 @@ export const Editor: React.FC = () => {
     }
   };
 
+  const handleEvidenceReviewChange = async (debugSession: NonNullable<BugReport['debugSession']>) => {
+    if (!draft) return;
+    const updated = { ...draft, debugSession, updatedAt: new Date().toISOString() };
+    await saveReport(updated);
+    setDraft(updated);
+  };
+
+  const handleCopyAiPrompt = async () => {
+    if (!draft || !navigator.clipboard?.writeText) return setCopyError('Clipboard prompt copy is unavailable in this browser.');
+    await navigator.clipboard.writeText(generateAiDebugPrompt({ ...draft, title, sessionLabel: sessionLabel.trim() || undefined, severity, reproductionSteps, expectedBehavior, actualBehavior, additionalNotes }));
+    setCopyFeedback('Detailed AI-ready debugging prompt copied locally.');
+  };
+
   const isTitleEmpty = title.trim().length === 0;
 
   return (
@@ -507,6 +567,7 @@ export const Editor: React.FC = () => {
               </span>
             </div>
           )}
+          {draft && !isDiscarded && viewMode === 'editor' && <button type="button" className="btn btn-secondary btn-sm" onClick={handleCopyAiPrompt}>Copy AI Prompt</button>}
 
           {/* Manage Reports & Settings Toggle */}
           <button
@@ -578,6 +639,20 @@ export const Editor: React.FC = () => {
               title="Download Markdown report and screenshot evidence"
             >
               {isExporting ? 'Exporting...' : 'Export Report'}
+            </button>
+          )}
+
+          {/* Export Portable ZIP Bundle Button */}
+          {draft && !isDiscarded && viewMode === 'editor' && (
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={handleExportZip}
+              disabled={isExporting}
+              data-testid="export-zip-btn"
+              title="Download portable ZIP bundle with report and diagnostics"
+            >
+              Export ZIP
             </button>
           )}
         </div>
@@ -733,6 +808,9 @@ export const Editor: React.FC = () => {
             </section>
           )}
           {draft?.debugSession && !isDiscarded && <DebugTimeline session={draft.debugSession} />}
+          {draft?.debugSession && !isDiscarded && <EvidenceReview session={draft.debugSession} onChange={handleEvidenceReviewChange} />}
+          {draft && !isDiscarded && <EnvironmentDiagnostics metadata={draft.metadata} />}
+          {draft && !isDiscarded && <EvidencePresets />}
           {/* No Draft ID State: Shows guidance and displays ReportManagement below */}
           {!isLoading && !draftId && !errorMessage && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -780,6 +858,24 @@ export const Editor: React.FC = () => {
                       Bug title is required.
                     </span>
                   )}
+                </div>
+
+                {/* Session Label (Optional) */}
+                <div className="form-group">
+                  <label htmlFor="report-session-label" className="form-label">
+                    Session Label <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>(optional)</span>
+                  </label>
+                  <input
+                    id="report-session-label"
+                    name="sessionLabel"
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. Sprint 24, Staging Smoke Test"
+                    value={sessionLabel}
+                    onChange={(e) => handleFieldChange('sessionLabel', e.target.value)}
+                    onBlur={handleFieldBlur}
+                    data-testid="input-session-label"
+                  />
                 </div>
 
                 {/* Severity Selector */}

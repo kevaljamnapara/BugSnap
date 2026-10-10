@@ -1,8 +1,8 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { Popup } from './Popup';
-import { APP_NAME, APP_VERSION } from '../shared/constants';
-import * as captureService from './captureService';
+import { Popup } from '../../src/popup/Popup';
+import { APP_NAME, APP_VERSION } from '../../src/shared/constants';
+import * as captureService from '../../src/popup/captureService';
 
 describe('Popup Component', () => {
   beforeEach(() => {

@@ -45,3 +45,15 @@ Object.defineProperty(globalThis, 'chrome', {
 if (typeof window !== 'undefined') {
   window.close = vi.fn();
 }
+
+// Polyfill Blob.prototype.arrayBuffer in jsdom test environment using FileReader
+if (typeof Blob !== 'undefined' && !Blob.prototype.arrayBuffer) {
+  Blob.prototype.arrayBuffer = function () {
+    return new Promise((resolve, reject) => {
+      const fr = new FileReader();
+      fr.onload = () => resolve(fr.result as ArrayBuffer);
+      fr.onerror = () => reject(fr.error);
+      fr.readAsArrayBuffer(this);
+    });
+  };
+}

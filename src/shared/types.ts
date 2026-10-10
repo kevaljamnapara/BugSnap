@@ -100,6 +100,7 @@ export interface DebugSession {
   stoppedAt?: string;
   consoleEvents: ConsoleEvidenceEvent[];
   networkEvents?: NetworkEvidenceEvent[];
+  excludedEvidenceIds?: string[];
 }
 
 export interface PageMetadata {
@@ -132,6 +133,7 @@ export interface BugReport {
   annotations?: Annotation[];
   filenameStem?: string;
   debugSession?: DebugSession;
+  sessionLabel?: string;
   createdAt: string;
   updatedAt: string;
 }

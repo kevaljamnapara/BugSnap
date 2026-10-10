@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { appendConsoleEvent, appendNetworkEvent, normalizeConsoleEvent, normalizeNetworkEvent, MAX_CONSOLE_EVENTS } from './consoleSession';
+import { appendConsoleEvent, appendNetworkEvent, normalizeConsoleEvent, normalizeNetworkEvent, MAX_CONSOLE_EVENTS } from '../../src/shared/consoleSession';
 
 describe('console evidence', () => {
   it('sanitizes runtime evidence and groups duplicates', () => {

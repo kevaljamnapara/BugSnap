@@ -1,6 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { DebugTimeline } from './DebugTimeline';
+import { DebugTimeline } from '../../src/editor/DebugTimeline';
 
 describe('DebugTimeline', () => {
   it('orders evidence and filters categories without claiming causation', () => {

@@ -1,7 +1,7 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
-import { AnnotationCanvas } from './AnnotationCanvas';
-import { Annotation } from '../shared/types';
+import { AnnotationCanvas } from '../../src/editor/AnnotationCanvas';
+import { Annotation } from '../../src/shared/types';
 
 describe('AnnotationCanvas Component', () => {
   const mockImageSrc = 'data:image/png;base64,mockBase64Screenshot';

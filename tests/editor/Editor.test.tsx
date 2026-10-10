@@ -1,14 +1,16 @@
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { Editor } from './Editor';
-import * as storage from '../shared/storage';
-import { BugReport } from '../shared/types';
+import { Editor } from '../../src/editor/Editor';
+import * as storage from '../../src/shared/storage';
+import { BugReport } from '../../src/shared/types';
 
 describe('Editor Component — Phase 3 Features', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     await storage.clearAllReports();
     window.history.pushState({}, '', '/editor.html');
+    window.URL.createObjectURL = vi.fn().mockReturnValue('blob:mock-url');
+    window.URL.revokeObjectURL = vi.fn();
   });
 
   const mockDraft: BugReport = {
@@ -530,6 +532,44 @@ describe('Editor Component — Phase 3 Features', () => {
       await waitFor(() => {
         expect(screen.getByTestId('copy-error-alert')).toBeInTheDocument();
         expect(screen.getByTestId('copy-error-alert')).toHaveTextContent(/Clipboard image copy is not supported/i);
+      });
+    });
+
+    it('updates sessionLabel and autosaves to storage', async () => {
+      await storage.saveReport(mockDraft);
+      window.history.pushState({}, '', `/editor.html?id=${mockDraft.id}`);
+
+      render(<Editor />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('input-session-label')).toBeInTheDocument();
+      });
+
+      const labelInput = screen.getByTestId('input-session-label');
+      fireEvent.change(labelInput, { target: { value: 'Hotfix Candidate' } });
+      fireEvent.blur(labelInput);
+
+      await waitFor(async () => {
+        const saved = await storage.getReport(mockDraft.id);
+        expect(saved?.sessionLabel).toBe('Hotfix Candidate');
+      });
+    });
+
+    it('renders Export ZIP button and exports portable bundle when clicked', async () => {
+      await storage.saveReport(mockDraft);
+      window.history.pushState({}, '', `/editor.html?id=${mockDraft.id}`);
+
+      render(<Editor />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('export-zip-btn')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByTestId('export-zip-btn'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('export-success-alert')).toBeInTheDocument();
+        expect(screen.getByTestId('export-success-alert')).toHaveTextContent(/Portable ZIP bundle exported successfully/i);
       });
     });
   });

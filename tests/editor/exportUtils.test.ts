@@ -6,8 +6,8 @@ import {
   generateMarkdownReport,
   dataUrlToBlob,
   exportReportPackage,
-} from './exportUtils';
-import { BugReport } from '../shared/types';
+} from '../../src/editor/exportUtils';
+import { BugReport } from '../../src/shared/types';
 
 describe('exportUtils', () => {
   beforeEach(() => {

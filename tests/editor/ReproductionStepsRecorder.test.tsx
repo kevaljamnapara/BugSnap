@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { ReproductionStepsRecorder } from './ReproductionStepsRecorder';
+import { ReproductionStepsRecorder } from '../../src/editor/ReproductionStepsRecorder';
 
 describe('ReproductionStepsRecorder', () => {
   it('supports opt-in breadcrumbs and editable manual steps without input capture', () => {

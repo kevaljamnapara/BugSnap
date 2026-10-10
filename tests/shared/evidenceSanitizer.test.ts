@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sanitizeEvidenceText } from './evidenceSanitizer';
+import { sanitizeEvidenceText } from '../../src/shared/evidenceSanitizer';
 
 describe('sanitizeEvidenceText', () => {
   it('redacts common credential forms and bounds payload size', () => {

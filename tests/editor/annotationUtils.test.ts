@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { displayToNaturalCoords, renderAnnotationsToDataUrl } from './annotationUtils';
-import { Annotation } from '../shared/types';
+import { displayToNaturalCoords, renderAnnotationsToDataUrl } from '../../src/editor/annotationUtils';
+import { Annotation } from '../../src/shared/types';
 
 describe('annotationUtils', () => {
   describe('displayToNaturalCoords', () => {
