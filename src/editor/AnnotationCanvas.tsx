@@ -317,6 +317,8 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
           </button>
         </div>
 
+        <div className="toolbar-divider" aria-hidden="true" />
+
         <div className="toolbar-group">
           <button
             type="button"
@@ -351,17 +353,20 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
         </div>
 
         {onExportReport && (
-          <div className="toolbar-group toolbar-group-actions">
-            <button
-              type="button"
-              className="tool-btn tool-btn-action tool-btn-accent"
-              onClick={onExportReport}
-              data-testid="canvas-export-btn"
-              title="Download Markdown report and screenshot evidence"
-            >
-              Export
-            </button>
-          </div>
+          <>
+            <div className="toolbar-divider" aria-hidden="true" />
+            <div className="toolbar-group toolbar-group-actions">
+              <button
+                type="button"
+                className="tool-btn tool-btn-action tool-btn-accent"
+                onClick={onExportReport}
+                data-testid="canvas-export-btn"
+                title="Download Markdown report and screenshot evidence"
+              >
+                Export
+              </button>
+            </div>
+          </>
         )}
       </div>
 
