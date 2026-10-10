@@ -20,6 +20,7 @@ import {
 import { ReportManagement } from './ReportManagement';
 import { cropImageDataUrl } from '../shared/cropUtils';
 import { DebugTimeline } from './DebugTimeline';
+import { ReproductionStepsRecorder } from './ReproductionStepsRecorder';
 
 export const Editor: React.FC = () => {
   const [draft, setDraft] = useState<BugReport | null>(null);
@@ -807,22 +808,7 @@ export const Editor: React.FC = () => {
                 </div>
 
                 {/* Reproduction Steps */}
-                <div className="form-group">
-                  <label htmlFor="report-steps" className="form-label">
-                    Reproduction Steps
-                  </label>
-                  <textarea
-                    id="report-steps"
-                    name="reproductionSteps"
-                    className="form-textarea"
-                    rows={4}
-                    placeholder={'1. Navigate to /checkout\n2. Select standard shipping\n3. Click Place Order button'}
-                    value={reproductionSteps}
-                    onChange={(e) => handleFieldChange('reproductionSteps', e.target.value)}
-                    onBlur={handleFieldBlur}
-                    data-testid="input-steps"
-                  />
-                </div>
+                <ReproductionStepsRecorder value={reproductionSteps} pageUrl={draft?.metadata.url} onChange={(value) => handleFieldChange('reproductionSteps', value)} />
 
                 {/* Expected Behavior */}
                 <div className="form-group">
