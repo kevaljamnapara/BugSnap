@@ -458,6 +458,27 @@ export const Editor: React.FC = () => {
     loadDraft(reportId);
   };
 
+  const handleStopDebugSession = async () => {
+    if (!draft?.debugSession || draft.debugSession.status !== 'active') return;
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'BUGSNAP_STOP_CONSOLE_SESSION', reportId: draft.id,
+      });
+      if (!response?.success) {
+        setErrorMessage(response?.error || 'Unable to stop the debugging session.');
+        return;
+      }
+      const updated = {
+        ...draft,
+        debugSession: { ...draft.debugSession, status: 'stopped' as const, stoppedAt: new Date().toISOString() },
+      };
+      setDraft(updated);
+      setSaveStatus('saved');
+    } catch (error) {
+      setErrorMessage(`Unable to stop the debugging session: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  };
+
   const isTitleEmpty = title.trim().length === 0;
 
   return (
@@ -505,6 +526,17 @@ export const Editor: React.FC = () => {
               title="Copy screenshot image to clipboard"
             >
               Copy Screenshot
+            </button>
+          )}
+
+          {draft?.debugSession?.status === 'active' && viewMode === 'editor' && (
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={handleStopDebugSession}
+              data-testid="stop-debug-session-btn"
+            >
+              Stop Error Session
             </button>
           )}
 
@@ -683,6 +715,18 @@ export const Editor: React.FC = () => {
       {/* View Mode: Editor */}
       {viewMode === 'editor' && (
         <>
+          {draft?.debugSession && !isDiscarded && (
+            <section className="editor-alert editor-alert-info" data-testid="console-session-summary">
+              <strong>Runtime error session: </strong>
+              {draft.debugSession.status === 'active' ? 'collecting supported page errors' : 'stopped'}.
+              {' '}Captured {draft.debugSession.consoleEvents.length} unique event
+              {draft.debugSession.consoleEvents.length === 1 ? '' : 's'}.
+              <p style={{ margin: '8px 0 0' }}>
+                BugSnap cannot read the complete DevTools console. Only supported `error` and
+                `unhandledrejection` events from this explicit session are collected locally.
+              </p>
+            </section>
+          )}
           {/* No Draft ID State: Shows guidance and displays ReportManagement below */}
           {!isLoading && !draftId && !errorMessage && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>

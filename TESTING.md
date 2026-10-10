@@ -21,6 +21,11 @@
 - [ ] Test active-tab changes and capture retries.
 - [ ] Confirm capture is always user-triggered.
 
+### Debug-session console evidence
+- [x] Verify explicit runtime-error session normalization, duplicate grouping, payload limiting, and conservative evidence sanitization — automated.
+- [ ] Manually verify page `error` and `unhandledrejection` collection and stop behavior in Chrome.
+- [ ] Confirm unsupported DevTools console output is not claimed as captured.
+
 ## 3. Report editor
 - [ ] Create a report with all fields populated.
 - [ ] Test each severity: Low, Medium, High, Critical.

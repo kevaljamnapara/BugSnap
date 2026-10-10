@@ -2,9 +2,11 @@
 
 BugSnap is a privacy-first Chromium-based browser extension for developers and QA testers. It helps users manually capture a website bug, document it with structured fields and visual evidence, save it locally, and export a Markdown report plus screenshot.
 
+BugSnap can also start an explicit, page-scoped runtime-error session for a captured report. It records only supported JavaScript `error` and `unhandledrejection` events, not the full DevTools console, and keeps the bounded, sanitized evidence local.
+
 ## Project status
 
-**Documentation and planning only. No application code has been implemented yet.**
+**Foundation implementation is available on `dev`; formal product and architecture approval remains governed by the project decision records.**
 
 - PRD: v0.3 — draft incorporating draft recovery, canonical export, download mechanism, and testing strategy; v1.0 remains unapproved pending explicit user approval
 - Development budget: ₹0
