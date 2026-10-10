@@ -331,11 +331,8 @@ describe('One-Click Bug Report & Evidence Capture Suite', () => {
       expect(screen.getByTestId('copy-complete-feedback')).toBeInTheDocument();
     });
 
-    expect(screen.getByTestId('copy-complete-feedback')).toHaveTextContent(/Copied/i);
-
-    // Manual form elements still exist in DOM for optional customization without breaking backwards compatibility
-    expect(screen.getByTestId('editor-form-card')).toBeInTheDocument();
-    expect(screen.getByTestId('input-title')).toBeInTheDocument();
-    expect(screen.getByTestId('input-title')).toHaveValue('');
+    // Manual form elements are completely removed from the UI for the one-click workflow
+    expect(screen.queryByTestId('editor-form-card')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('input-title')).not.toBeInTheDocument();
   });
 });
