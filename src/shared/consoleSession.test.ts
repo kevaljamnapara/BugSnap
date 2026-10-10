@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { appendConsoleEvent, normalizeConsoleEvent, MAX_CONSOLE_EVENTS } from './consoleSession';
+import { appendConsoleEvent, appendNetworkEvent, normalizeConsoleEvent, normalizeNetworkEvent, MAX_CONSOLE_EVENTS } from './consoleSession';
 
 describe('console evidence', () => {
   it('sanitizes runtime evidence and groups duplicates', () => {
@@ -17,5 +17,12 @@ describe('console evidence', () => {
       events = appendConsoleEvent(events, normalizeConsoleEvent('runtime-error', { message: String(index) }));
     }
     expect(events).toHaveLength(MAX_CONSOLE_EVENTS);
+  });
+
+  it('records only sanitized observable network resource metadata', () => {
+    const event = normalizeNetworkEvent({ name: 'https://api.test/items?token=abc', initiatorType: 'fetch', duration: 12 });
+    expect(event.url).toContain('[redacted]');
+    expect(event.outcome).toBe('observed-resource');
+    expect(appendNetworkEvent([event], { ...event, id: 'next' })[0].count).toBe(2);
   });
 });

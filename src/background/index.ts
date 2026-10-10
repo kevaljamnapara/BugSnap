@@ -1,7 +1,7 @@
 import { APP_NAME, APP_VERSION, DEFAULT_SEVERITY } from '../shared/constants';
 import { runRetentionCleanup, generateDraftId, saveReport, getReport } from '../shared/storage';
 import { BugReport, ConsoleEventKind } from '../shared/types';
-import { appendConsoleEvent, normalizeConsoleEvent } from '../shared/consoleSession';
+import { appendConsoleEvent, appendNetworkEvent, normalizeConsoleEvent, normalizeNetworkEvent } from '../shared/consoleSession';
 
 // BugSnap Background Service Worker
 chrome.runtime.onInstalled.addListener(async () => {
@@ -23,6 +23,24 @@ chrome.runtime.onStartup?.addListener(async () => {
 
 // Coordinate region capture when overlay reports a selection
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.type === 'BUGSNAP_NETWORK_EVENT') {
+    (async () => {
+      const reportId = typeof message.reportId === 'string' ? message.reportId : '';
+      if (!reportId) return;
+      const report = await getReport(reportId);
+      if (!report?.debugSession || report.debugSession.status !== 'active') return;
+      const event = normalizeNetworkEvent(message.event || {});
+      await saveReport({
+        ...report,
+        debugSession: {
+          ...report.debugSession,
+          networkEvents: appendNetworkEvent(report.debugSession.networkEvents || [], event),
+        },
+        updatedAt: new Date().toISOString(),
+      });
+    })().catch(() => undefined);
+    return;
+  }
   if (message?.type === 'BUGSNAP_CONSOLE_EVENT') {
     (async () => {
       const reportId = typeof message.reportId === 'string' ? message.reportId : '';
@@ -103,11 +121,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               stack: reason instanceof Error ? reason.stack : undefined,
             });
           };
+          const observer = typeof PerformanceObserver === 'undefined' ? undefined : new PerformanceObserver((list) => {
+            for (const entry of list.getEntries()) {
+              const resource = entry as PerformanceResourceTiming;
+              chrome.runtime.sendMessage({
+                type: 'BUGSNAP_NETWORK_EVENT', reportId: activeReportId,
+                event: { name: resource.name, initiatorType: resource.initiatorType, duration: resource.duration, timestamp: new Date().toISOString() },
+              });
+            }
+          });
+          try { observer?.observe({ type: 'resource', buffered: false }); } catch { /* unsupported observer */ }
           window.addEventListener('error', onError);
           window.addEventListener('unhandledrejection', onRejection);
           sessionWindow.__bugSnapConsoleCleanup = () => {
             window.removeEventListener('error', onError);
             window.removeEventListener('unhandledrejection', onRejection);
+            observer?.disconnect();
             delete sessionWindow.__bugSnapConsoleCleanup;
           };
         },

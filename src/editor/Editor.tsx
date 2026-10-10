@@ -719,11 +719,14 @@ export const Editor: React.FC = () => {
             <section className="editor-alert editor-alert-info" data-testid="console-session-summary">
               <strong>Runtime error session: </strong>
               {draft.debugSession.status === 'active' ? 'collecting supported page errors' : 'stopped'}.
-              {' '}Captured {draft.debugSession.consoleEvents.length} unique event
-              {draft.debugSession.consoleEvents.length === 1 ? '' : 's'}.
+              {' '}Captured {draft.debugSession.consoleEvents.length} runtime event
+              {draft.debugSession.consoleEvents.length === 1 ? '' : 's'} and
+              {' '}{draft.debugSession.networkEvents?.length || 0} observable network resource
+              {(draft.debugSession.networkEvents?.length || 0) === 1 ? '' : 's'}.
               <p style={{ margin: '8px 0 0' }}>
                 BugSnap cannot read the complete DevTools console. Only supported `error` and
-                `unhandledrejection` events from this explicit session are collected locally.
+                `unhandledrejection` events and resource timing metadata from this explicit session
+                are collected locally. Resource metadata does not prove an HTTP error or a failed request.
               </p>
             </section>
           )}
