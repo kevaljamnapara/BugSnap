@@ -91,8 +91,8 @@
 ## 9. Quality
 - [x] Run TypeScript type checks (`tsc --noEmit`) — Passed (0 errors).
 - [x] Run ESLint with TypeScript support (`eslint .`) — Passed (0 errors, 0 warnings).
-- [x] Run Vitest test suite (`vitest run`) — Passed (11 test suites, 110 tests passed).
-- [x] Run the production build (`npm run build`) — Passed (built in 328ms).
+- [x] Run Vitest test suite (`vitest run`) — Passed (23 test suites, 156 tests passed).
+- [x] Run the production build (`npm run build`) — Passed (tsc --noEmit && vite build).
 - [x] Check browser console and extension service worker errors — Clean build, valid MV3 bundle.
 - [x] Verify keyboard navigation and focus states — Accessible form controls, modal traps, button labels.
 - [x] Verify responsive popup and editor layouts — Responsive CSS grid, flex layouts, SVG viewBox scaling.
