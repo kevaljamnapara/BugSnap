@@ -551,7 +551,10 @@ export const Editor: React.FC = () => {
       {/* Header */}
       <header className="editor-header">
         <div className="header-left">
-          <h1>{APP_NAME} — Report Editor</h1>
+          <div className="app-brand">
+            <span className="app-logo-mark" aria-hidden="true">🐞</span>
+            <h1>{APP_NAME} <span className="header-subtitle">— Report Editor</span></h1>
+          </div>
           <div className="header-badges">
             <span className="badge badge-draft">Draft</span>
             {draftId && <span className="badge badge-id">ID: {draftId}</span>}
@@ -559,105 +562,117 @@ export const Editor: React.FC = () => {
         </div>
 
         <div className="header-actions">
-          <ThemeSwitcher />
-          {/* Autosave Status Indicator */}
+          {/* Status & Appearance Cluster */}
+          <div className="header-cluster header-cluster-system">
+            <ThemeSwitcher />
+            {draft && !isDiscarded && viewMode === 'editor' && (
+              <div className="save-status-container" data-testid="save-status">
+                <span className={`status-dot status-dot-${saveStatus}`} />
+                <span className={`status-text ${saveStatus === 'error' ? 'status-text-error' : ''}`}>
+                  {saveStatus === 'saving' && 'Saving...'}
+                  {saveStatus === 'saved' && 'Saved locally'}
+                  {saveStatus === 'error' && 'Save failed'}
+                </span>
+              </div>
+            )}
+          </div>
+
+          <div className="header-divider" aria-hidden="true" />
+
+          {/* Secondary Actions Cluster */}
+          <div className="header-cluster header-cluster-secondary">
+            {/* Manage Reports & Settings Toggle */}
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => setViewMode(viewMode === 'editor' ? 'management' : 'editor')}
+              data-testid="manage-reports-btn"
+            >
+              {viewMode === 'editor' ? 'Manage Reports & Settings' : '← Back to Editor'}
+            </button>
+
+            {/* Quick Copy / AI Actions */}
+            {draft && !isDiscarded && viewMode === 'editor' && (
+              <div className="btn-segmented-group">
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm btn-segmented"
+                  onClick={handleCopyReport}
+                  data-testid="copy-report-btn"
+                  title="Copy Markdown bug report to clipboard"
+                >
+                  Copy Report
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm btn-segmented"
+                  onClick={handleCopyScreenshot}
+                  data-testid="copy-screenshot-btn"
+                  title="Copy screenshot image to clipboard"
+                >
+                  Copy Image
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm btn-segmented"
+                  onClick={handleCopyAiPrompt}
+                  title="Copy AI debug prompt to clipboard"
+                >
+                  AI Prompt
+                </button>
+              </div>
+            )}
+
+            {draft?.debugSession?.status === 'active' && viewMode === 'editor' && (
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={handleStopDebugSession}
+                data-testid="stop-debug-session-btn"
+              >
+                Stop Error Session
+              </button>
+            )}
+
+            {/* Discard Draft Button */}
+            {draft && !isDiscarded && viewMode === 'editor' && (
+              <button
+                type="button"
+                className="btn btn-danger-outline btn-sm"
+                onClick={handleOpenDiscardModal}
+                data-testid="discard-draft-btn"
+              >
+                Discard Draft
+              </button>
+            )}
+          </div>
+
+          <div className="header-divider" aria-hidden="true" />
+
+          {/* Primary Export Actions Cluster */}
           {draft && !isDiscarded && viewMode === 'editor' && (
-            <div className="save-status-container" data-testid="save-status">
-              <span className={`status-dot status-dot-${saveStatus}`} />
-              <span className={`status-text ${saveStatus === 'error' ? 'status-text-error' : ''}`}>
-                {saveStatus === 'saving' && 'Saving...'}
-                {saveStatus === 'saved' && 'Saved locally'}
-                {saveStatus === 'error' && 'Save failed'}
-              </span>
+            <div className="header-cluster header-cluster-primary">
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={handleExportZip}
+                disabled={isExporting}
+                data-testid="export-zip-btn"
+                title="Download portable ZIP bundle with report and diagnostics"
+              >
+                Export ZIP
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm btn-prominent"
+                onClick={handleExport}
+                disabled={isExporting}
+                data-testid="export-report-btn"
+                title="Download Markdown report and screenshot evidence"
+              >
+                {isExporting ? 'Exporting...' : 'Export Report'}
+              </button>
             </div>
-          )}
-          {draft && !isDiscarded && viewMode === 'editor' && <button type="button" className="btn btn-secondary btn-sm" onClick={handleCopyAiPrompt}>Copy AI Prompt</button>}
-
-          {/* Manage Reports & Settings Toggle */}
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={() => setViewMode(viewMode === 'editor' ? 'management' : 'editor')}
-            data-testid="manage-reports-btn"
-          >
-            {viewMode === 'editor' ? 'Manage Reports & Settings' : '← Back to Editor'}
-          </button>
-
-          {/* Copy Screenshot Button */}
-          {draft && !isDiscarded && viewMode === 'editor' && (
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={handleCopyScreenshot}
-              data-testid="copy-screenshot-btn"
-              title="Copy screenshot image to clipboard"
-            >
-              Copy Screenshot
-            </button>
-          )}
-
-          {draft?.debugSession?.status === 'active' && viewMode === 'editor' && (
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={handleStopDebugSession}
-              data-testid="stop-debug-session-btn"
-            >
-              Stop Error Session
-            </button>
-          )}
-
-          {/* Copy Bug Report Button */}
-          {draft && !isDiscarded && viewMode === 'editor' && (
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={handleCopyReport}
-              data-testid="copy-report-btn"
-              title="Copy Markdown bug report to clipboard"
-            >
-              Copy Report
-            </button>
-          )}
-
-          {/* Discard Draft Button */}
-          {draft && !isDiscarded && viewMode === 'editor' && (
-            <button
-              type="button"
-              className="btn btn-danger-outline btn-sm"
-              onClick={handleOpenDiscardModal}
-              data-testid="discard-draft-btn"
-            >
-              Discard Draft
-            </button>
-          )}
-
-          {/* Export Report Button */}
-          {draft && !isDiscarded && viewMode === 'editor' && (
-            <button
-              type="button"
-              className="btn btn-primary btn-sm"
-              onClick={handleExport}
-              disabled={isExporting}
-              data-testid="export-report-btn"
-              title="Download Markdown report and screenshot evidence"
-            >
-              {isExporting ? 'Exporting...' : 'Export Report'}
-            </button>
-          )}
-
-          {/* Export Portable ZIP Bundle Button */}
-          {draft && !isDiscarded && viewMode === 'editor' && (
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={handleExportZip}
-              disabled={isExporting}
-              data-testid="export-zip-btn"
-              title="Download portable ZIP bundle with report and diagnostics"
-            >
-              Export ZIP
-            </button>
           )}
         </div>
       </header>
@@ -796,25 +811,35 @@ export const Editor: React.FC = () => {
       {/* View Mode: Editor */}
       {viewMode === 'editor' && (
         <>
-          {draft?.debugSession && !isDiscarded && (
-            <section className="editor-alert editor-alert-info" data-testid="console-session-summary">
-              <strong>Runtime error session: </strong>
-              {draft.debugSession.status === 'active' ? 'collecting supported page errors' : 'stopped'}.
-              {' '}Captured {draft.debugSession.consoleEvents.length} runtime event
-              {draft.debugSession.consoleEvents.length === 1 ? '' : 's'} and
-              {' '}{draft.debugSession.networkEvents?.length || 0} observable network resource
-              {(draft.debugSession.networkEvents?.length || 0) === 1 ? '' : 's'}.
-              <p style={{ margin: '8px 0 0' }}>
-                BugSnap cannot read the complete DevTools console. Only supported `error` and
-                `unhandledrejection` events and resource timing metadata from this explicit session
-                are collected locally. Resource metadata does not prove an HTTP error or a failed request.
-              </p>
-            </section>
+          {draft && !isDiscarded && (
+            <div className="editor-diagnostics-container">
+              {draft.debugSession && (
+                <section className="editor-alert editor-alert-info diagnostics-panel" data-testid="console-session-summary">
+                  <div className="diagnostics-panel-header">
+                    <h2 style={{ margin: 0 }}>
+                      Runtime error session: {draft.debugSession.status === 'active' ? 'collecting supported page errors' : 'stopped'}
+                    </h2>
+                    <span className="diagnostics-badge">Debug session</span>
+                  </div>
+                  <p style={{ margin: '6px 0 0' }}>
+                    Captured <strong>{draft.debugSession.consoleEvents.length}</strong> runtime event
+                    {draft.debugSession.consoleEvents.length === 1 ? '' : 's'} and{' '}
+                    <strong>{draft.debugSession.networkEvents?.length || 0}</strong> observable network resource
+                    {(draft.debugSession.networkEvents?.length || 0) === 1 ? '' : 's'}.
+                  </p>
+                  <p className="diagnostics-footer-note">
+                    BugSnap cannot read the complete DevTools console. Only supported `error` and
+                    `unhandledrejection` events and resource timing metadata from this explicit session
+                    are collected locally. Resource metadata does not prove an HTTP error or a failed request.
+                  </p>
+                </section>
+              )}
+              {draft.debugSession && <DebugTimeline session={draft.debugSession} />}
+              {draft.debugSession && <EvidenceReview session={draft.debugSession} onChange={handleEvidenceReviewChange} />}
+              <EnvironmentDiagnostics metadata={draft.metadata} />
+              <EvidencePresets />
+            </div>
           )}
-          {draft?.debugSession && !isDiscarded && <DebugTimeline session={draft.debugSession} />}
-          {draft?.debugSession && !isDiscarded && <EvidenceReview session={draft.debugSession} onChange={handleEvidenceReviewChange} />}
-          {draft && !isDiscarded && <EnvironmentDiagnostics metadata={draft.metadata} />}
-          {draft && !isDiscarded && <EvidencePresets />}
           {/* No Draft ID State: Shows guidance and displays ReportManagement below */}
           {!isLoading && !draftId && !errorMessage && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>

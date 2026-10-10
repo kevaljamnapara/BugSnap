@@ -6,7 +6,7 @@
   gap: var(--bs-space-3);
 }
 
-/* ─── Toolbar ─── */
+/* ─── Floating Apple-style Toolbar ─── */
 .annotation-toolbar {
   display: flex;
   align-items: center;
@@ -16,13 +16,14 @@
   background-color: var(--bs-bg-secondary);
   border: 1px solid var(--bs-border);
   border-radius: var(--bs-radius-md);
-  padding: 6px 10px;
+  padding: 4px 6px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .toolbar-group {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
 }
 
 .tool-btn {
@@ -30,15 +31,18 @@
   color: var(--bs-text-secondary);
   border: 1px solid transparent;
   border-radius: var(--bs-radius-sm);
-  padding: 5px 10px;
+  padding: 4px 9px;
   font-size: 12px;
   font-weight: 500;
+  height: 28px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   transition: all var(--bs-duration-fast) var(--bs-ease);
   font-family: inherit;
+  user-select: none;
+  white-space: nowrap;
 }
 
 .tool-btn:hover:not(:disabled) {
@@ -55,10 +59,13 @@
   outline-offset: 1px;
 }
 
+/* Active Segmented Tool Button */
 .tool-btn-active {
-  background-color: var(--bs-accent-subtle-bg);
+  background-color: var(--bs-bg-primary);
   color: var(--bs-accent);
-  border-color: var(--bs-accent-subtle-border);
+  border-color: var(--bs-border);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  font-weight: 600;
 }
 
 .tool-btn:disabled {
@@ -70,6 +77,37 @@
   background-color: var(--bs-error-bg);
   color: var(--bs-error-text);
   border-color: var(--bs-error-border);
+}
+
+/* ─── Action buttons in toolbar ─── */
+.toolbar-group-actions {
+  margin-left: auto;
+  border-left: 1px solid var(--bs-divider);
+  padding-left: 6px;
+}
+
+.tool-btn-action {
+  background-color: var(--bs-bg-input);
+  color: var(--bs-text-primary);
+  border: 1px solid var(--bs-border);
+}
+
+.tool-btn-action:hover:not(:disabled) {
+  border-color: var(--bs-border-strong);
+  background-color: var(--bs-bg-hover);
+}
+
+.tool-btn-accent {
+  background-color: var(--bs-accent-subtle-bg);
+  color: var(--bs-accent);
+  border-color: var(--bs-accent-subtle-border);
+  font-weight: 600;
+}
+
+.tool-btn-accent:hover:not(:disabled) {
+  background-color: var(--bs-accent);
+  color: var(--bs-accent-on);
+  border-color: transparent;
 }
 
 /* ─── Stage Area ─── */
@@ -85,6 +123,7 @@
   justify-content: center;
   align-items: center;
   width: 100%;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
 .stage-wrapper {
@@ -123,6 +162,8 @@
   right: 0;
   bottom: 0;
   background-color: var(--bs-bg-overlay);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -147,6 +188,7 @@
   font-size: 14px;
   font-weight: 600;
   color: var(--bs-text-primary);
+  letter-spacing: var(--bs-tracking-tight);
 }
 
 .text-input-actions {
@@ -154,35 +196,6 @@
   justify-content: flex-end;
   gap: 8px;
   margin-top: var(--bs-space-3);
-}
-
-/* ─── Action buttons in toolbar ─── */
-.toolbar-group-actions {
-  margin-left: auto;
-  border-left: 1px solid var(--bs-border);
-  padding-left: 8px;
-}
-
-.tool-btn-action {
-  background-color: var(--bs-bg-secondary);
-  color: var(--bs-text-primary);
-  border: 1px solid var(--bs-border);
-}
-
-.tool-btn-action:hover:not(:disabled) {
-  border-color: var(--bs-accent);
-  color: var(--bs-accent);
-}
-
-.tool-btn-accent {
-  background-color: var(--bs-accent-subtle-bg);
-  color: var(--bs-accent);
-  border-color: var(--bs-accent-subtle-border);
-}
-
-.tool-btn-accent:hover:not(:disabled) {
-  background-color: var(--bs-accent);
-  color: var(--bs-accent-on);
 }
 
 @media (prefers-reduced-motion: reduce) {
