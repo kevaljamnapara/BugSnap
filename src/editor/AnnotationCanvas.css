@@ -1,58 +1,71 @@
+/* ═══════════════════ ANNOTATION CANVAS ═══════════════════ */
+
 .annotation-container {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--bs-space-3);
 }
 
-/* Toolbar */
+/* ─── Floating Apple-style Toolbar ─── */
 .annotation-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 8px;
-  background-color: var(--bg-input);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  padding: 6px 10px;
+  gap: 6px;
+  background-color: var(--bs-bg-secondary);
+  border: 1px solid var(--bs-border);
+  border-radius: var(--bs-radius-md);
+  padding: 4px 6px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .toolbar-group {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 3px;
 }
 
 .tool-btn {
   background-color: transparent;
-  color: var(--text-muted);
+  color: var(--bs-text-secondary);
   border: 1px solid transparent;
-  border-radius: 5px;
-  padding: 6px 10px;
+  border-radius: var(--bs-radius-sm);
+  padding: 4px 9px;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
+  height: 28px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  transition: all 0.15s ease;
+  transition: all var(--bs-duration-fast) var(--bs-ease);
   font-family: inherit;
+  user-select: none;
+  white-space: nowrap;
 }
 
 .tool-btn:hover:not(:disabled) {
-  background-color: var(--bg-card-secondary);
-  color: var(--text-main);
+  background-color: var(--bs-bg-hover);
+  color: var(--bs-text-primary);
+}
+
+.tool-btn:active:not(:disabled) {
+  transform: scale(0.97);
 }
 
 .tool-btn:focus-visible {
-  outline: 2px solid var(--primary);
+  outline: 2px solid var(--bs-accent);
   outline-offset: 1px;
 }
 
+/* Active Segmented Tool Button */
 .tool-btn-active {
-  background-color: rgba(56, 189, 248, 0.15);
-  color: var(--primary);
-  border-color: rgba(56, 189, 248, 0.4);
+  background-color: var(--bs-bg-primary);
+  color: var(--bs-accent);
+  border-color: var(--bs-border);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  font-weight: 600;
 }
 
 .tool-btn:disabled {
@@ -61,17 +74,48 @@
 }
 
 .tool-btn-danger:hover:not(:disabled) {
-  background-color: rgba(239, 68, 68, 0.15);
-  color: #f87171;
-  border-color: rgba(239, 68, 68, 0.4);
+  background-color: var(--bs-error-bg);
+  color: var(--bs-error-text);
+  border-color: var(--bs-error-border);
 }
 
-/* Stage Area (Image + SVG overlay) */
+/* ─── Action buttons in toolbar ─── */
+.toolbar-group-actions {
+  margin-left: auto;
+  border-left: 1px solid var(--bs-divider);
+  padding-left: 6px;
+}
+
+.tool-btn-action {
+  background-color: var(--bs-bg-input);
+  color: var(--bs-text-primary);
+  border: 1px solid var(--bs-border);
+}
+
+.tool-btn-action:hover:not(:disabled) {
+  border-color: var(--bs-border-strong);
+  background-color: var(--bs-bg-hover);
+}
+
+.tool-btn-accent {
+  background-color: var(--bs-accent-subtle-bg);
+  color: var(--bs-accent);
+  border-color: var(--bs-accent-subtle-border);
+  font-weight: 600;
+}
+
+.tool-btn-accent:hover:not(:disabled) {
+  background-color: var(--bs-accent);
+  color: var(--bs-accent-on);
+  border-color: transparent;
+}
+
+/* ─── Stage Area ─── */
 .annotation-stage {
   position: relative;
-  background-color: #030712;
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
+  background-color: var(--bs-bg-app);
+  border: 1px solid var(--bs-border);
+  border-radius: var(--bs-radius-md);
   overflow: hidden;
   user-select: none;
   touch-action: none;
@@ -79,6 +123,7 @@
   justify-content: center;
   align-items: center;
   width: 100%;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
 .stage-wrapper {
@@ -109,70 +154,53 @@
   cursor: default !important;
 }
 
-/* Text Input Popover */
+/* ─── Text Input Dialog ─── */
 .text-input-dialog-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.6);
+  background-color: var(--bs-bg-overlay);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1050;
-  padding: 16px;
+  padding: var(--bs-space-4);
+  animation: bs-fade-in var(--bs-duration-normal) var(--bs-ease-out);
 }
 
 .text-input-dialog {
-  background-color: var(--bg-card);
-  border: 1px solid var(--border-subtle);
-  border-radius: 8px;
+  background-color: var(--bs-bg-elevated);
+  border: 1px solid var(--bs-border-strong);
+  border-radius: var(--bs-radius-md);
   padding: 18px;
   max-width: 360px;
   width: 100%;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--bs-modal-shadow);
+  animation: bs-scale-in var(--bs-duration-normal) var(--bs-ease-spring);
 }
 
 .text-input-dialog h4 {
   margin: 0 0 10px 0;
   font-size: 14px;
   font-weight: 600;
-  color: var(--text-main);
+  color: var(--bs-text-primary);
+  letter-spacing: var(--bs-tracking-tight);
 }
 
 .text-input-actions {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  margin-top: 12px;
+  margin-top: var(--bs-space-3);
 }
 
-.toolbar-group-actions {
-  margin-left: auto;
-  border-left: 1px solid var(--border-subtle);
-  padding-left: 8px;
+@media (prefers-reduced-motion: reduce) {
+  .text-input-dialog-overlay,
+  .text-input-dialog {
+    animation: none;
+  }
 }
-
-.tool-btn-action {
-  background-color: var(--bg-card-secondary);
-  color: var(--text-main);
-  border: 1px solid var(--border-subtle);
-}
-
-.tool-btn-action:hover:not(:disabled) {
-  border-color: var(--primary);
-  color: var(--primary);
-}
-
-.tool-btn-accent {
-  background-color: rgba(56, 189, 248, 0.15);
-  color: var(--primary);
-  border-color: rgba(56, 189, 248, 0.4);
-}
-
-.tool-btn-accent:hover:not(:disabled) {
-  background-color: var(--primary);
-  color: #0b0f19;
-}
-

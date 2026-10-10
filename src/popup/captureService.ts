@@ -11,6 +11,24 @@ export interface CaptureResult {
   error?: string;
 }
 
+async function queryActiveTab(): Promise<chrome.tabs.Tab | undefined> {
+  try {
+    const tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+    if (tabs?.[0]?.id) return tabs[0];
+  } catch {
+    // fallback
+  }
+
+  try {
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tabs?.[0]?.id) return tabs[0];
+  } catch {
+    // ignore
+  }
+
+  return undefined;
+}
+
 export async function startRegionCapture(): Promise<CaptureResult> {
   if (typeof chrome === 'undefined' || !chrome.tabs) {
     return {
@@ -20,17 +38,7 @@ export async function startRegionCapture(): Promise<CaptureResult> {
   }
 
   // 1. Locate active tab
-  let tabs: chrome.tabs.Tab[] = [];
-  try {
-    tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-  } catch (err) {
-    return {
-      success: false,
-      error: `Failed to query active tab: ${err instanceof Error ? err.message : String(err)}`,
-    };
-  }
-
-  const activeTab = tabs[0];
+  const activeTab = await queryActiveTab();
   if (!activeTab || !activeTab.id) {
     return {
       success: false,
@@ -39,10 +47,11 @@ export async function startRegionCapture(): Promise<CaptureResult> {
   }
 
   // 2. Validate against restricted pages
-  if (isRestrictedUrl(activeTab.url)) {
+  const tabUrl = activeTab.url || activeTab.pendingUrl;
+  if (tabUrl && isRestrictedUrl(tabUrl)) {
     return {
       success: false,
-      error: getRestrictedUrlMessage(activeTab.url),
+      error: getRestrictedUrlMessage(tabUrl),
     };
   }
 
@@ -81,17 +90,7 @@ export async function captureActiveTab(mode: CaptureMode = 'viewport'): Promise<
   }
 
   // 1. Locate active tab
-  let tabs: chrome.tabs.Tab[] = [];
-  try {
-    tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-  } catch (err) {
-    return {
-      success: false,
-      error: `Failed to query active tab: ${err instanceof Error ? err.message : String(err)}`,
-    };
-  }
-
-  const activeTab = tabs[0];
+  const activeTab = await queryActiveTab();
   if (!activeTab || !activeTab.id) {
     return {
       success: false,
@@ -100,10 +99,11 @@ export async function captureActiveTab(mode: CaptureMode = 'viewport'): Promise<
   }
 
   // 2. Validate against restricted pages
-  if (isRestrictedUrl(activeTab.url)) {
+  const tabUrl = activeTab.url || activeTab.pendingUrl;
+  if (tabUrl && isRestrictedUrl(tabUrl)) {
     return {
       success: false,
-      error: getRestrictedUrlMessage(activeTab.url),
+      error: getRestrictedUrlMessage(tabUrl),
     };
   }
 
@@ -128,7 +128,7 @@ export async function captureActiveTab(mode: CaptureMode = 'viewport'): Promise<
 
   // 4. Assemble metadata (omit unavailable properties, never fabricate)
   const metadata: PageMetadata = {
-    url: activeTab.url ?? '',
+    url: tabUrl ?? '',
     title: activeTab.title ?? '',
     capturedAt: new Date().toISOString(),
     captureMode: 'viewport',

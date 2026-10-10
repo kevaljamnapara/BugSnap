@@ -162,4 +162,79 @@ describe('captureService', () => {
     expect(result.error).toContain('Browser internal pages');
     expect(chrome.scripting.executeScript).not.toHaveBeenCalled();
   });
+
+  it('captures active tab successfully even when tab url is undefined', async () => {
+    const mockTabWithoutUrl: chrome.tabs.Tab = {
+      id: 77,
+      index: 0,
+      windowId: 1,
+      highlighted: true,
+      active: true,
+      pinned: false,
+      incognito: false,
+      selected: true,
+      discarded: false,
+      autoDiscardable: false,
+      groupId: -1,
+      frozen: false,
+    };
+
+    (chrome.tabs.query as unknown as ReturnType<typeof vi.fn>).mockResolvedValue([mockTabWithoutUrl]);
+    (chrome.tabs.captureVisibleTab as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(
+      'data:image/png;base64,mockPngBase64Data',
+    );
+    (chrome.runtime.getURL as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+      (path: string) => `chrome-extension://mock-id/${path}`,
+    );
+    (chrome.tabs.create as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({});
+
+    const result = await captureActiveTab();
+
+    expect(result.success).toBe(true);
+    expect(result.draft).toBeDefined();
+    expect(result.draft?.metadata.url).toBe('');
+    expect(chrome.tabs.captureVisibleTab).toHaveBeenCalledWith(1, { format: 'png' });
+  });
+
+  it('identifies restricted pages using pendingUrl', async () => {
+    const pendingRestrictedTab = {
+      id: 88,
+      pendingUrl: 'chrome://settings',
+      windowId: 1,
+    } as chrome.tabs.Tab;
+
+    (chrome.tabs.query as unknown as ReturnType<typeof vi.fn>).mockResolvedValue([pendingRestrictedTab]);
+
+    const result = await captureActiveTab();
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('Browser internal pages');
+    expect(chrome.tabs.captureVisibleTab).not.toHaveBeenCalled();
+  });
+
+  it('falls back to currentWindow if lastFocusedWindow returns no tabs', async () => {
+    const fallbackTab = {
+      id: 99,
+      url: 'https://example.com/fallback',
+      windowId: 2,
+    } as chrome.tabs.Tab;
+
+    (chrome.tabs.query as unknown as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce([]) // lastFocusedWindow
+      .mockResolvedValueOnce([fallbackTab]); // currentWindow
+
+    (chrome.tabs.captureVisibleTab as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(
+      'data:image/png;base64,mockPngBase64Data',
+    );
+    (chrome.runtime.getURL as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+      (path: string) => `chrome-extension://mock-id/${path}`,
+    );
+    (chrome.tabs.create as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({});
+
+    const result = await captureActiveTab();
+
+    expect(result.success).toBe(true);
+    expect(result.draft?.metadata.url).toBe('https://example.com/fallback');
+    expect(chrome.tabs.query).toHaveBeenCalledTimes(2);
+  });
 });

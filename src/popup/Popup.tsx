@@ -1,13 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './Popup.css';
 import { APP_NAME, APP_VERSION } from '../shared/constants';
 import { captureActiveTab } from './captureService';
 import { CaptureMode } from '../shared/types';
+import { ThemeSwitcher } from '../shared/ThemeSwitcher';
+import { initTheme } from '../shared/theme';
 
 export const Popup: React.FC = () => {
   const [isCapturing, setIsCapturing] = useState(false);
   const [activeMode, setActiveMode] = useState<CaptureMode | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    initTheme();
+  }, []);
 
   const handleCapture = async (mode: CaptureMode = 'viewport') => {
     if (isCapturing) {
@@ -73,14 +79,17 @@ export const Popup: React.FC = () => {
     <div className="popup-container">
       <header className="popup-header">
         <div className="popup-title-wrapper">
-          <span className="popup-logo-icon">📸</span>
+          <span className="popup-logo-icon" aria-hidden="true">📸</span>
           <h1 className="popup-title">{APP_NAME}</h1>
         </div>
-        <span className="popup-badge">v{APP_VERSION}</span>
+        <div className="popup-header-actions">
+          <ThemeSwitcher />
+          <span className="popup-badge">v{APP_VERSION}</span>
+        </div>
       </header>
 
       <p className="popup-subtitle">
-        Fast visual debugging & evidence capture
+        Fast visual debugging &amp; evidence capture
       </p>
 
       {errorMessage && (
@@ -117,7 +126,7 @@ export const Popup: React.FC = () => {
           data-mode="viewport"
         >
           <div className="capture-mode-left">
-            <span className="mode-icon">🖥️</span>
+            <span className="mode-icon" aria-hidden="true">🖥️</span>
             <div className="mode-text">
               <span className="mode-title">
                 {isCapturing && activeMode === 'viewport' ? 'Capturing...' : 'Capture Viewport'}
@@ -136,7 +145,7 @@ export const Popup: React.FC = () => {
           data-mode="region"
         >
           <div className="capture-mode-left">
-            <span className="mode-icon">✂️</span>
+            <span className="mode-icon" aria-hidden="true">✂️</span>
             <div className="mode-text">
               <span className="mode-title">
                 {isCapturing && activeMode === 'region' ? 'Starting...' : 'Select Region'}
@@ -154,7 +163,7 @@ export const Popup: React.FC = () => {
           data-testid="start-debug-session-btn"
         >
           <div className="capture-mode-left">
-            <span className="mode-icon">🐞</span>
+            <span className="mode-icon" aria-hidden="true">🐞</span>
             <div className="mode-text">
               <span className="mode-title">Start Error Session</span>
               <span className="mode-desc">Capture supported runtime errors only</span>
@@ -170,7 +179,7 @@ export const Popup: React.FC = () => {
           title="Full-page capture requires DevTools debugging permissions which violate our privacy invariants"
         >
           <div className="capture-mode-left">
-            <span className="mode-icon">📜</span>
+            <span className="mode-icon" aria-hidden="true">📜</span>
             <div className="mode-text">
               <span className="mode-title">Full Page</span>
               <span className="mode-desc">Unavailable in MV3 without debugger</span>
@@ -190,7 +199,7 @@ export const Popup: React.FC = () => {
           disabled={isCapturing}
           data-testid="open-editor-btn"
         >
-          Open Report Editor & History
+          Open Report Editor &amp; History
         </button>
       </div>
 
