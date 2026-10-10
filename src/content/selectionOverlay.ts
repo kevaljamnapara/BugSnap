@@ -35,11 +35,10 @@ export function initSelectionOverlay(options?: SelectionOverlayOptions): HTMLEle
     padding: '0',
   });
 
-  // 3. Top guidance banner
+  // 3. Top guidance banner with Cancel button
   const banner = document.createElement('div');
   banner.id = 'bugsnap-overlay-banner';
   banner.setAttribute('data-testid', 'selection-banner');
-  banner.textContent = '🎯 Drag to select area • Enter to capture • Esc to cancel';
   Object.assign(banner.style, {
     position: 'fixed',
     top: '16px',
@@ -49,14 +48,39 @@ export function initSelectionOverlay(options?: SelectionOverlayOptions): HTMLEle
     color: '#38bdf8',
     border: '1px solid #334155',
     borderRadius: '9999px',
-    padding: '8px 18px',
+    padding: '6px 16px',
     fontSize: '13px',
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     fontWeight: '500',
     boxShadow: '0 4px 16px rgba(0, 0, 0, 0.4)',
-    pointerEvents: 'none',
+    pointerEvents: 'auto',
     zIndex: '2147483648',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
   });
+
+  const bannerText = document.createElement('span');
+  bannerText.textContent = '🎯 Drag to select area • Release to capture';
+  banner.appendChild(bannerText);
+
+  const bannerCancelBtn = document.createElement('button');
+  bannerCancelBtn.id = 'bugsnap-cancel-action-btn';
+  bannerCancelBtn.setAttribute('data-testid', 'selection-cancel-btn');
+  bannerCancelBtn.type = 'button';
+  bannerCancelBtn.textContent = 'Cancel (Esc)';
+  Object.assign(bannerCancelBtn.style, {
+    backgroundColor: '#1e293b',
+    color: '#94a3b8',
+    border: '1px solid #475569',
+    borderRadius: '9999px',
+    padding: '3px 10px',
+    fontSize: '11px',
+    fontWeight: '500',
+    cursor: 'pointer',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+  });
+  banner.appendChild(bannerCancelBtn);
   overlay.appendChild(banner);
 
   // 4. Selection box
@@ -93,61 +117,6 @@ export function initSelectionOverlay(options?: SelectionOverlayOptions): HTMLEle
     zIndex: '2147483648',
   });
   overlay.appendChild(dimensionsBadge);
-
-  // 6. Floating Action Bar (Capture / Cancel)
-  const actionBar = document.createElement('div');
-  actionBar.id = 'bugsnap-action-bar';
-  actionBar.setAttribute('data-testid', 'selection-action-bar');
-  Object.assign(actionBar.style, {
-    position: 'absolute',
-    display: 'none',
-    gap: '8px',
-    padding: '6px 8px',
-    backgroundColor: '#0f172a',
-    border: '1px solid #334155',
-    borderRadius: '6px',
-    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.5)',
-    zIndex: '2147483648',
-    pointerEvents: 'auto',
-  });
-
-  const captureBtn = document.createElement('button');
-  captureBtn.id = 'bugsnap-capture-action-btn';
-  captureBtn.setAttribute('data-testid', 'selection-capture-btn');
-  captureBtn.type = 'button';
-  captureBtn.textContent = 'Capture Area';
-  Object.assign(captureBtn.style, {
-    backgroundColor: '#00f0ff',
-    color: '#0f172a',
-    border: 'none',
-    borderRadius: '4px',
-    padding: '5px 12px',
-    fontSize: '12px',
-    fontWeight: '600',
-    cursor: 'pointer',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-  });
-
-  const cancelBtn = document.createElement('button');
-  cancelBtn.id = 'bugsnap-cancel-action-btn';
-  cancelBtn.setAttribute('data-testid', 'selection-cancel-btn');
-  cancelBtn.type = 'button';
-  cancelBtn.textContent = 'Cancel';
-  Object.assign(cancelBtn.style, {
-    backgroundColor: '#1e293b',
-    color: '#f8fafc',
-    border: '1px solid #334155',
-    borderRadius: '4px',
-    padding: '5px 12px',
-    fontSize: '12px',
-    fontWeight: '500',
-    cursor: 'pointer',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-  });
-
-  actionBar.appendChild(captureBtn);
-  actionBar.appendChild(cancelBtn);
-  overlay.appendChild(actionBar);
 
   // State
   let isDragging = false;
@@ -201,13 +170,18 @@ export function initSelectionOverlay(options?: SelectionOverlayOptions): HTMLEle
     return { resourceTimings: timings };
   };
 
+  let isCapturing = false;
+
   const handleCapture = () => {
-    if (!currentRegion || currentRegion.width < 5 || currentRegion.height < 5) {
+    if (isCapturing) return;
+    if (!currentRegion || currentRegion.width < 10 || currentRegion.height < 10) {
       return;
     }
+    isCapturing = true;
 
     // Immediately hide overlay so it does not appear in the screenshot
     overlay.style.display = 'none';
+    cleanup();
 
     const diagnostics = collectDiagnostics();
 
@@ -236,14 +210,12 @@ export function initSelectionOverlay(options?: SelectionOverlayOptions): HTMLEle
         // Graceful handle in disconnected contexts
       }
     }
-
-    cleanup();
   };
 
   // Dragging event handlers
   overlay.addEventListener('mousedown', (e: MouseEvent) => {
-    // If user clicked inside the action bar, do not re-drag
-    if (actionBar.contains(e.target as Node)) {
+    // If user clicked inside the banner (e.g. Cancel button), do not start dragging
+    if (banner.contains(e.target as Node)) {
       return;
     }
 
@@ -251,7 +223,6 @@ export function initSelectionOverlay(options?: SelectionOverlayOptions): HTMLEle
     startX = e.clientX;
     startY = e.clientY;
     currentRegion = null;
-    actionBar.style.display = 'none';
 
     selectionBox.style.left = `${startX}px`;
     selectionBox.style.top = `${startY}px`;
@@ -298,31 +269,18 @@ export function initSelectionOverlay(options?: SelectionOverlayOptions): HTMLEle
     if (!isDragging) return;
     isDragging = false;
 
+    // Immediately capture valid selections without requiring an extra confirmation button
     if (currentRegion && currentRegion.width >= 10 && currentRegion.height >= 10) {
-      actionBar.style.display = 'flex';
-      const actionTop = currentRegion.y + currentRegion.height + 8;
-      // Position inside or above if near window bottom
-      if (actionTop + 45 > window.innerHeight) {
-        actionBar.style.top = `${Math.max(10, currentRegion.y - 45)}px`;
-      } else {
-        actionBar.style.top = `${actionTop}px`;
-      }
-      actionBar.style.left = `${Math.min(currentRegion.x, window.innerWidth - 180)}px`;
+      handleCapture();
     } else {
       selectionBox.style.display = 'none';
       dimensionsBadge.style.display = 'none';
-      actionBar.style.display = 'none';
       currentRegion = null;
     }
   });
 
-  // Action button click listeners
-  captureBtn.addEventListener('click', (e: MouseEvent) => {
-    e.stopPropagation();
-    handleCapture();
-  });
-
-  cancelBtn.addEventListener('click', (e: MouseEvent) => {
+  // Banner cancel button listener
+  bannerCancelBtn.addEventListener('click', (e: MouseEvent) => {
     e.stopPropagation();
     handleCancel();
   });

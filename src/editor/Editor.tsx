@@ -56,6 +56,7 @@ export const Editor: React.FC = () => {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [saveError, setSaveError] = useState<string | null>(null);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [showSidePanel, setShowSidePanel] = useState<boolean>(true);
 
   // Export State
   const [isExporting, setIsExporting] = useState<boolean>(false);
@@ -512,12 +513,22 @@ export const Editor: React.FC = () => {
               {viewMode === 'editor' ? 'Manage Reports & Settings' : '← Back to Editor'}
             </button>
 
-            {/* Quick Copy / AI Actions */}
+            {/* Quick Secondary Export Actions */}
             {draft && !isDiscarded && viewMode === 'editor' && (
-              <div className="btn-segmented-group">
+              <>
                 <button
                   type="button"
-                  className="btn btn-secondary btn-sm btn-segmented"
+                  className="btn btn-secondary btn-sm"
+                  onClick={handleExportZip}
+                  disabled={isExporting}
+                  data-testid="export-zip-btn"
+                  title="Download portable ZIP bundle with report and diagnostics"
+                >
+                  Export ZIP
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
                   onClick={handleCopyReport}
                   data-testid="copy-report-btn"
                   title="Copy Markdown bug report to clipboard"
@@ -526,7 +537,7 @@ export const Editor: React.FC = () => {
                 </button>
                 <button
                   type="button"
-                  className="btn btn-secondary btn-sm btn-segmented"
+                  className="btn btn-ghost btn-sm"
                   onClick={handleCopyScreenshot}
                   data-testid="copy-screenshot-btn"
                   title="Copy screenshot image to clipboard"
@@ -535,13 +546,24 @@ export const Editor: React.FC = () => {
                 </button>
                 <button
                   type="button"
-                  className="btn btn-secondary btn-sm btn-segmented"
+                  className="btn btn-ghost btn-sm"
                   onClick={handleCopyAiPrompt}
-                  title="Copy AI debug prompt to clipboard"
+                  data-testid="copy-ai-prompt-btn"
+                  title="Copy AI debugging prompt to clipboard"
                 >
                   AI Prompt
                 </button>
-              </div>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={handleExport}
+                  disabled={isExporting}
+                  data-testid="export-report-btn"
+                  title="Download Markdown report and screenshot evidence"
+                >
+                  Export Report
+                </button>
+              </>
             )}
 
             {draft?.debugSession?.status === 'active' && viewMode === 'editor' && (
@@ -570,38 +592,28 @@ export const Editor: React.FC = () => {
 
           <div className="header-divider" aria-hidden="true" />
 
-          {/* Primary Export Actions Cluster */}
+          {/* Primary One-Click Action Button */}
           {draft && !isDiscarded && viewMode === 'editor' && (
             <div className="header-cluster header-cluster-primary">
               <button
                 type="button"
-                className="btn btn-primary btn-sm btn-prominent"
+                className="btn btn-primary btn-sm btn-prominent btn-hero-copy"
                 onClick={handleCopyCompleteReport}
                 disabled={isCopyingComplete}
-                data-testid="header-copy-complete-btn"
-                title="Copy complete bug report and screenshot to clipboard"
+                data-testid="copy-complete-report-btn"
+                title="Copy screenshot, complete bug report, and AI prompt to clipboard"
               >
-                {isCopyingComplete ? 'Copying...' : 'Copy Complete Report'}
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={handleExportZip}
-                disabled={isExporting}
-                data-testid="export-zip-btn"
-                title="Download portable ZIP bundle with report and diagnostics"
-              >
-                Export ZIP
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={handleExport}
-                disabled={isExporting}
-                data-testid="export-report-btn"
-                title="Download Markdown report and screenshot evidence"
-              >
-                {isExporting ? 'Exporting...' : 'Export Report'}
+                {isCopyingComplete ? (
+                  <>
+                    <span className="spinner-sm" aria-hidden="true" />
+                    <span>Copying...</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="hero-btn-icon" aria-hidden="true">📋</span>
+                    <span>Copy Complete Bug Report</span>
+                  </>
+                )}
               </button>
             </div>
           )}
@@ -720,6 +732,20 @@ export const Editor: React.FC = () => {
         </div>
       )}
 
+      {/* No Draft ID State: Shows guidance and displays ReportManagement below */}
+      {!isLoading && !draftId && !errorMessage && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <div className="editor-alert editor-alert-info" data-testid="editor-empty">
+            <strong>No report draft selected.</strong>
+            <p style={{ margin: '8px 0 0 0' }}>
+              Open the BugSnap extension popup on any webpage and click &quot;Capture Bug&quot;
+              to capture a new defect report, or manage existing reports and retention settings below.
+            </p>
+          </div>
+          <ReportManagement onOpenReport={handleOpenReportFromManagement} />
+        </div>
+      )}
+
       {/* Error State: Display error message and ReportManagement for recovery */}
       {!isLoading && errorMessage && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -744,41 +770,17 @@ export const Editor: React.FC = () => {
         <>
           {draft && !isDiscarded && (
             <>
-              {/* One-Click Bug Report Hero Card */}
-              <section className="editor-card one-click-card" data-testid="one-click-action-card">
-                <div className="one-click-header">
-                  <div className="one-click-summary-preview">
-                    <span className="one-click-label">Target Bug Summary (Auto-Derived)</span>
-                    <h2 className="one-click-title" data-testid="derived-summary-preview">
-                      {(draft.title && draft.title.trim()) || deriveReportSummary(draft)}
-                    </h2>
-                  </div>
-                  <div className="one-click-actions">
-                    <button
-                      type="button"
-                      className="btn btn-primary btn-hero-copy"
-                      onClick={handleCopyCompleteReport}
-                      disabled={isCopyingComplete}
-                      data-testid="copy-complete-report-btn"
-                    >
-                      {isCopyingComplete ? (
-                        <>
-                          <span className="spinner-sm" aria-hidden="true" />
-                          <span>Assembling &amp; Copying...</span>
-                        </>
-                      ) : (
-                        <>
-                          <span className="hero-btn-icon" aria-hidden="true">📋</span>
-                          <span>Copy Complete Bug Report</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
+              {/* Minimal Evidence Sub-bar with Summary and Diagnostic Chips */}
+              <div className="editor-subbar" data-testid="one-click-action-card">
+                <div className="subbar-summary">
+                  <span className="subbar-label">Summary:</span>
+                  <strong className="subbar-title" data-testid="derived-summary-preview">
+                    {(draft.title && draft.title.trim()) || deriveReportSummary(draft)}
+                  </strong>
                 </div>
 
-                {/* Evidence Readiness Summary Bar */}
                 <div className="evidence-summary-bar" data-testid="evidence-summary-bar">
-                  <div className="evidence-summary-title">Collected Evidence Sources:</div>
+                  <div className="evidence-summary-title">Evidence:</div>
                   <div className="evidence-chips-list">
                     <div
                       className={`evidence-chip ${draft.screenshotDataUrl ? 'chip-ready' : 'chip-missing'}`}
@@ -824,168 +826,160 @@ export const Editor: React.FC = () => {
 
                     <div className="evidence-chip chip-privacy" data-testid="chip-privacy">
                       <span className="chip-icon">🔒</span>
-                      <span>Privacy: Auto-redaction active (₹0 offline)</span>
+                      <span>Privacy: Offline (₹0)</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Real-time Copy Complete Feedback */}
-                {copyCompleteFeedback && (
-                  <div
-                    className={`one-click-feedback ${copyCompleteFeedback.success ? 'feedback-success' : 'feedback-error'}`}
-                    data-testid="copy-complete-feedback"
-                    role="status"
+                <div className="subbar-actions">
+                  <button
+                    type="button"
+                    className={`btn btn-sm ${showSidePanel ? 'btn-secondary-active' : 'btn-secondary'}`}
+                    onClick={() => setShowSidePanel(!showSidePanel)}
+                    data-testid="toggle-diagnostics-btn"
+                    title="Toggle Page Context & Diagnostics panel"
                   >
-                    <div className="feedback-content">
-                      <span className="feedback-icon">{copyCompleteFeedback.success ? '✅' : '⚠️'}</span>
-                      <div className="feedback-text-block">
-                        <strong>
-                          {copyCompleteFeedback.success
-                            ? copyCompleteFeedback.combined
-                              ? 'Copied Successfully!'
-                              : 'Copied with Screenshot Download'
-                            : 'Copy Failed'}
-                        </strong>
-                        <p className="feedback-message">{copyCompleteFeedback.message}</p>
-                        {copyCompleteFeedback.fallbackScreenshotSaved && (
-                          <p className="feedback-tip">
-                            💡 <em>Browser security policy restricted combining image and text in a single clipboard write. The screenshot was automatically saved to your downloads folder so all evidence is preserved.</em>
-                          </p>
-                        )}
-                      </div>
+                    <span>{showSidePanel ? 'Hide Context ✕' : 'ℹ️ Page Context & Diagnostics'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Real-time Copy Complete Feedback */}
+              {copyCompleteFeedback && (
+                <div
+                  className={`one-click-feedback ${copyCompleteFeedback.success ? 'feedback-success' : 'feedback-error'}`}
+                  data-testid="copy-complete-feedback"
+                  role="status"
+                >
+                  <div className="feedback-content">
+                    <span className="feedback-icon">{copyCompleteFeedback.success ? '✅' : '⚠️'}</span>
+                    <div className="feedback-text-block">
+                      <strong>
+                        {copyCompleteFeedback.success
+                          ? copyCompleteFeedback.combined
+                            ? 'Copied Successfully!'
+                            : 'Report and AI prompt copied; screenshot saved separately.'
+                          : 'Copy Failed'}
+                      </strong>
+                      <p className="feedback-message">{copyCompleteFeedback.message}</p>
                     </div>
                   </div>
-                )}
-              </section>
+                </div>
+              )}
 
-              <div className="editor-diagnostics-container">
-                {draft.debugSession && (
-                  <section className="editor-alert editor-alert-info diagnostics-panel" data-testid="console-session-summary">
-                    <div className="diagnostics-panel-header">
-                      <h2 style={{ margin: 0 }}>
-                        Runtime error session: {draft.debugSession.status === 'active' ? 'collecting supported page errors' : 'stopped'}
-                      </h2>
-                      <span className="diagnostics-badge">Debug session</span>
+              {/* Full-Screen Workspace Body */}
+              <div className="editor-main-body">
+                {/* Visual Evidence Full-Screen Canvas */}
+                <main className="screenshot-fullscreen-container" data-testid="screenshot-card">
+                  {draft.screenshotDataUrl ? (
+                    <div className="fullscreen-canvas-wrapper">
+                      <AnnotationCanvas
+                        imageSrc={draft.screenshotDataUrl}
+                        annotations={annotations}
+                        onAnnotationsChange={handleAnnotationsChange}
+                        onCompositeRendered={handleCompositeRendered}
+                        onExportReport={handleExport}
+                      />
                     </div>
-                    <p style={{ margin: '6px 0 0' }}>
-                      Captured <strong>{draft.debugSession.consoleEvents.length}</strong> runtime event
-                      {draft.debugSession.consoleEvents.length === 1 ? '' : 's'} and{' '}
-                      <strong>{draft.debugSession.networkEvents?.length || 0}</strong> observable network resource
-                      {(draft.debugSession.networkEvents?.length || 0) === 1 ? '' : 's'}.
-                    </p>
-                    <p className="diagnostics-footer-note">
-                      BugSnap cannot read the complete DevTools console. Only supported `error` and
-                      `unhandledrejection` events and resource timing metadata from this explicit session
-                      are collected locally. Resource metadata does not prove an HTTP error or a failed request.
-                    </p>
-                  </section>
-                )}
-                {draft.debugSession && <DebugTimeline session={draft.debugSession} />}
-                {draft.debugSession && <EvidenceReview session={draft.debugSession} onChange={handleEvidenceReviewChange} />}
-                <EnvironmentDiagnostics metadata={draft.metadata} />
-                <EvidencePresets />
+                  ) : (
+                    <div className="empty-screenshot-placeholder">
+                      <p>No screenshot image available.</p>
+                    </div>
+                  )}
+                </main>
+
+                {/* Collapsible Page Context & Diagnostics Panel */}
+                <aside
+                  className={`editor-sidebar-panel ${showSidePanel ? 'sidebar-open' : 'sidebar-collapsed'}`}
+                  data-testid="metadata-card"
+                  aria-label="Page Context and Diagnostics"
+                >
+                  <div className="sidebar-section">
+                    <div className="sidebar-header">
+                      <h3>Page Context</h3>
+                    </div>
+                    <div className="metadata-grid">
+                      <div className="metadata-item">
+                        <span className="metadata-label">Page Title</span>
+                        <span className="metadata-value" data-testid="meta-title">
+                          {draft.metadata.title || 'Untitled page'}
+                        </span>
+                      </div>
+
+                      <div className="metadata-item">
+                        <span className="metadata-label">Page URL</span>
+                        <span className="metadata-value" data-testid="meta-url">
+                          {draft.metadata.url ? (
+                            <a
+                              href={draft.metadata.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="metadata-link"
+                            >
+                              {draft.metadata.url}
+                            </a>
+                          ) : (
+                            'Unavailable'
+                          )}
+                        </span>
+                      </div>
+
+                      <div className="metadata-item">
+                        <span className="metadata-label">Captured At</span>
+                        <span className="metadata-value" data-testid="meta-captured-at">
+                          {new Date(draft.metadata.capturedAt).toLocaleString()}
+                        </span>
+                      </div>
+
+                      {draft.metadata.viewport && (
+                        <div className="metadata-item" data-testid="meta-viewport">
+                          <span className="metadata-label">Viewport</span>
+                          <span className="metadata-value">
+                            {draft.metadata.viewport.width} × {draft.metadata.viewport.height} px
+                          </span>
+                        </div>
+                      )}
+
+                      {draft.metadata.platform && (
+                        <div className="metadata-item" data-testid="meta-platform">
+                          <span className="metadata-label">Platform</span>
+                          <span className="metadata-value">{draft.metadata.platform}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Advanced Diagnostics Collapsible Section */}
+                  <details className="sidebar-diagnostics-disclosure" open>
+                    <summary className="sidebar-diagnostics-summary">
+                      <span>Diagnostics &amp; Session Data</span>
+                    </summary>
+                    <div className="sidebar-diagnostics-content">
+                      {draft.debugSession && (
+                        <div className="diagnostics-panel" data-testid="console-session-summary">
+                          <h4>
+                            Runtime error session:{' '}
+                            {draft.debugSession.status === 'active' ? 'collecting page errors' : 'stopped'}
+                          </h4>
+                          <p style={{ margin: '4px 0 0' }}>
+                            Captured <strong>{draft.debugSession.consoleEvents.length}</strong> runtime event
+                            {draft.debugSession.consoleEvents.length === 1 ? '' : 's'} and{' '}
+                            <strong>{draft.debugSession.networkEvents?.length || 0}</strong> network timing
+                            {(draft.debugSession.networkEvents?.length || 0) === 1 ? '' : 's'}.
+                          </p>
+                        </div>
+                      )}
+                      {draft.debugSession && <DebugTimeline session={draft.debugSession} />}
+                      {draft.debugSession && (
+                        <EvidenceReview session={draft.debugSession} onChange={handleEvidenceReviewChange} />
+                      )}
+                      <EnvironmentDiagnostics metadata={draft.metadata} />
+                      <EvidencePresets />
+                    </div>
+                  </details>
+                </aside>
               </div>
             </>
-          )}
-          {/* No Draft ID State: Shows guidance and displays ReportManagement below */}
-          {!isLoading && !draftId && !errorMessage && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              <div className="editor-alert editor-alert-info" data-testid="editor-empty">
-                <strong>No report draft selected.</strong>
-                <p style={{ margin: '8px 0 0 0' }}>
-                  Open the BugSnap extension popup on any webpage and click &quot;Capture Bug&quot;
-                  to capture a new defect report, or manage existing reports and retention settings below.
-                </p>
-              </div>
-              <ReportManagement onOpenReport={handleOpenReportFromManagement} />
-            </div>
-          )}
-
-          {/* Main Editor Grid */}
-          {!isLoading && draft && !isDiscarded && (
-            <main className="editor-grid">
-              {/* Visual Evidence & Annotation Canvas */}
-              <section className="editor-card" data-testid="screenshot-card">
-                <h2>Visual Evidence &amp; Annotations</h2>
-                {draft.screenshotDataUrl ? (
-                  <div className="screenshot-preview-container">
-                    <AnnotationCanvas
-                      imageSrc={draft.screenshotDataUrl}
-                      annotations={annotations}
-                      onAnnotationsChange={handleAnnotationsChange}
-                      onCompositeRendered={handleCompositeRendered}
-                      onCopyScreenshot={handleCopyScreenshot}
-                      onCopyReport={handleCopyReport}
-                      onExportReport={handleExport}
-                    />
-                    <div className="screenshot-footer">
-                      <span>Captured tab viewport</span>
-                      {draft.metadata.viewport && (
-                        <span>
-                          {draft.metadata.viewport.width} × {draft.metadata.viewport.height} px
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <p style={{ color: 'var(--text-muted)' }}>No screenshot image available.</p>
-                )}
-              </section>
-
-              {/* Page Metadata */}
-              <section className="editor-card" data-testid="metadata-card">
-                <h2>Page Context</h2>
-                <div className="metadata-grid">
-                  <div className="metadata-item">
-                    <span className="metadata-label">Page Title</span>
-                    <span className="metadata-value" data-testid="meta-title">
-                      {draft.metadata.title || 'Untitled page'}
-                    </span>
-                  </div>
-
-                  <div className="metadata-item">
-                    <span className="metadata-label">Page URL</span>
-                    <span className="metadata-value" data-testid="meta-url">
-                      {draft.metadata.url ? (
-                        <a
-                          href={draft.metadata.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="metadata-link"
-                        >
-                          {draft.metadata.url}
-                        </a>
-                      ) : (
-                        'Unavailable'
-                      )}
-                    </span>
-                  </div>
-
-                  <div className="metadata-item">
-                    <span className="metadata-label">Captured At</span>
-                    <span className="metadata-value" data-testid="meta-captured-at">
-                      {new Date(draft.metadata.capturedAt).toLocaleString()}
-                    </span>
-                  </div>
-
-                  {draft.metadata.viewport && (
-                    <div className="metadata-item" data-testid="meta-viewport">
-                      <span className="metadata-label">Viewport</span>
-                      <span className="metadata-value">
-                        {draft.metadata.viewport.width} × {draft.metadata.viewport.height} px
-                      </span>
-                    </div>
-                  )}
-
-                  {draft.metadata.platform && (
-                    <div className="metadata-item" data-testid="meta-platform">
-                      <span className="metadata-label">Platform</span>
-                      <span className="metadata-value">{draft.metadata.platform}</span>
-                    </div>
-                  )}
-                </div>
-              </section>
-            </main>
           )}
         </>
       )}

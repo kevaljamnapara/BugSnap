@@ -209,7 +209,7 @@ describe('One-Click Bug Report & Evidence Capture Suite', () => {
 
     expect(result.success).toBe(true);
     expect(result.combined).toBe(true);
-    expect(result.message).toContain('Complete bug report and screenshot copied to clipboard');
+    expect(result.message).toBe('Report, AI prompt, and screenshot copied.');
     expect(writeMock).toHaveBeenCalled();
     expect(capturedClipboardItem).not.toBeNull();
     expect(capturedClipboardItem).toHaveProperty('text/plain');
@@ -247,7 +247,7 @@ describe('One-Click Bug Report & Evidence Capture Suite', () => {
     expect(result.success).toBe(true);
     expect(result.combined).toBe(false);
     expect(result.fallbackScreenshotSaved).toBe(true);
-    expect(result.message).toContain('Screenshot downloaded as fallback');
+    expect(result.message).toBe('Report and AI prompt copied; screenshot saved separately.');
     expect(clickSpy).toHaveBeenCalled();
   });
 

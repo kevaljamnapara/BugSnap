@@ -1,6 +1,16 @@
 import { BugReport } from '../shared/types';
 import { sanitizeEvidenceText, sanitizeEvidenceUrl } from '../shared/evidenceSanitizer';
 import { buildEnvironmentDiagnostics } from '../shared/environmentDiagnostics';
+import { generateAiDebugPrompt } from '../shared/aiPrompt';
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
 
 /**
  * Sanitizes a title string into a safe, filesystem-friendly URL-like slug.
@@ -137,6 +147,9 @@ export function deriveReportSummary(report: BugReport): string {
 export interface CompleteBugReportResult {
   markdown: string;
   html: string;
+  aiPrompt: string;
+  combinedMarkdown: string;
+  combinedHtml: string;
   summary: string;
   filenameStem: string;
 }
@@ -360,9 +373,21 @@ ${timelineMd}
   <p style="font-size: 11px; color: #8e8e93; margin: 0;"><em>Report generated locally with BugSnap (₹0, privacy-first).</em></p>
 </div>`;
 
+  const aiPrompt = generateAiDebugPrompt(report, 'detailed');
+  const combinedMarkdown = `${markdown}\n\n---\n\n# AI Debugging Prompt\n\n${aiPrompt}\n`;
+  const combinedHtml = `${html}
+  <hr style="border: none; border-top: 2px solid #0071e3; margin: 24px 0;" />
+  <div class="bugsnap-ai-prompt" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.5; color: #1c1c1e;">
+    <h2 style="font-size: 16px; font-weight: 700; color: #0071e3; margin-top: 16px; margin-bottom: 8px;">AI Debugging Prompt</h2>
+    <pre style="font-size: 12px; background: #f2f2f7; padding: 12px; border-radius: 6px; white-space: pre-wrap; margin: 0 0 12px 0; font-family: ui-monospace, monospace;">${escapeHtml(aiPrompt)}</pre>
+  </div>`;
+
   return {
     markdown,
     html,
+    aiPrompt,
+    combinedMarkdown,
+    combinedHtml,
     summary,
     filenameStem: stem,
   };
@@ -427,8 +452,8 @@ export async function copyCompleteBugReport(
   screenshotDataUrl?: string,
 ): Promise<CopyReportResult> {
   const completeReport = generateCompleteBugReport(report);
-  const markdownText = completeReport.markdown;
-  const htmlText = completeReport.html;
+  const markdownText = completeReport.combinedMarkdown;
+  const htmlText = completeReport.combinedHtml;
 
   const dataUrl = screenshotDataUrl || report.annotatedScreenshotDataUrl || report.screenshotDataUrl;
   let screenshotBlob: Blob | null = null;
@@ -457,7 +482,7 @@ export async function copyCompleteBugReport(
         return {
           success: true,
           combined: true,
-          message: 'Complete bug report and screenshot copied to clipboard!',
+          message: 'Report, AI prompt, and screenshot copied.',
         };
       } catch {
         // Combined write rejected by browser environment; fall through to text copy + screenshot download fallback
@@ -482,15 +507,14 @@ export async function copyCompleteBugReport(
           success: true,
           combined: false,
           fallbackScreenshotSaved: true,
-          message:
-            'Report text copied to clipboard. Screenshot downloaded as fallback (browser restricted combined image copy).',
+          message: 'Report and AI prompt copied; screenshot saved separately.',
         };
       }
 
       return {
         success: true,
         combined: false,
-        message: 'Bug report copied to clipboard!',
+        message: 'Report and AI prompt copied.',
       };
     } catch {
       // Fall through to writeText
@@ -511,21 +535,20 @@ export async function copyCompleteBugReport(
           success: true,
           combined: false,
           fallbackScreenshotSaved: true,
-          message:
-            'Report text copied to clipboard. Screenshot downloaded as fallback (browser restricted combined image copy).',
+          message: 'Report and AI prompt copied; screenshot saved separately.',
         };
       }
       return {
         success: true,
         combined: false,
-        message: 'Bug report copied to clipboard!',
+        message: 'Report and AI prompt copied.',
       };
     } catch (writeErr) {
       return {
         success: false,
         combined: false,
         error: `Failed to copy to clipboard: ${writeErr instanceof Error ? writeErr.message : String(writeErr)}`,
-        message: 'Clipboard copy failed.',
+        message: 'Copy failed. Try again.',
       };
     }
   }
@@ -534,7 +557,7 @@ export async function copyCompleteBugReport(
     success: false,
     combined: false,
     error: 'Clipboard API is unavailable in this environment.',
-    message: 'Clipboard copy unavailable.',
+    message: 'Copy failed. Try again.',
   };
 }
 
