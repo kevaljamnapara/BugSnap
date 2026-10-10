@@ -77,6 +77,27 @@
   background-color: var(--bs-bg-tertiary);
   border-color: var(--bs-border-strong);
 }
+.btn-secondary-active {
+  background-color: var(--bs-accent-subtle-bg);
+  color: var(--bs-accent);
+  border-color: var(--bs-accent);
+}
+
+/* Ghost Button (Apple Minimal) */
+.btn-ghost {
+  background-color: transparent;
+  color: var(--bs-text-secondary);
+  border: 1px solid transparent;
+}
+.btn-ghost:hover:not(:disabled) {
+  background-color: var(--bs-bg-tertiary);
+  color: var(--bs-text-primary);
+  border-color: var(--bs-border-subtle);
+}
+.btn-ghost:active:not(:disabled) {
+  background-color: var(--bs-bg-hover);
+  transform: scale(0.97);
+}
 
 /* Danger Button */
 .btn-danger {

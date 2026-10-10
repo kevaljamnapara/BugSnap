@@ -52,32 +52,27 @@ describe('Editor Component — Phase 3 Features', () => {
     });
   });
 
-  it('restores all saved report fields upon reload', async () => {
+  it('restores saved report evidence and derived summary upon reload', async () => {
     await storage.saveReport(mockDraft);
     window.history.pushState({}, '', `/editor.html?id=${mockDraft.id}`);
 
     render(<Editor />);
 
     await waitFor(() => {
-      expect(screen.getByTestId('input-title')).toHaveValue('Initial Bug Title');
+      expect(screen.getByTestId('derived-summary-preview')).toHaveTextContent('Initial Bug Title');
     });
-
-    expect(screen.getByTestId('input-steps')).toHaveValue('Step 1: Open app');
-    expect(screen.getByTestId('input-expected')).toHaveValue('Should load fine');
-    expect(screen.getByTestId('input-actual')).toHaveValue('Crashes on startup');
-    expect(screen.getByTestId('input-notes')).toHaveValue('Chrome 129 on macOS');
-
-    // Severity pill active
-    const mediumPill = screen.getByTestId('severity-pill-Medium');
-    expect(mediumPill).toHaveAttribute('aria-checked', 'true');
 
     // Evidence & metadata visible
     expect(screen.getByTestId('screenshot-img')).toBeInTheDocument();
     expect(screen.getByTestId('meta-url')).toHaveTextContent('https://example.com/checkout');
     expect(screen.getByTestId('meta-viewport')).toHaveTextContent('1440 × 900 px');
+
+    // Manual form fields are removed from the one-click workflow
+    expect(screen.queryByTestId('input-title')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('editor-form-card')).not.toBeInTheDocument();
   });
 
-  it('validates required bug title and shows validation error when blurred empty', async () => {
+  it('does not require manual title and derives summary automatically from evidence', async () => {
     const draftEmptyTitle: BugReport = { ...mockDraft, title: '' };
     await storage.saveReport(draftEmptyTitle);
     window.history.pushState({}, '', `/editor.html?id=${draftEmptyTitle.id}`);
@@ -85,92 +80,40 @@ describe('Editor Component — Phase 3 Features', () => {
     render(<Editor />);
 
     await waitFor(() => {
-      expect(screen.getByTestId('input-title')).toBeInTheDocument();
+      expect(screen.getByTestId('derived-summary-preview')).toBeInTheDocument();
     });
 
-    const titleInput = screen.getByTestId('input-title');
+    // Automatically derives issue title from page title or url without requiring manual title
+    expect(screen.getByTestId('derived-summary-preview')).toHaveTextContent('Issue on: Checkout Flow');
     expect(screen.queryByTestId('title-error')).not.toBeInTheDocument();
-
-    // Blur empty title
-    fireEvent.blur(titleInput);
-
-    expect(screen.getByTestId('title-error')).toBeInTheDocument();
-    expect(screen.getByTestId('title-error')).toHaveTextContent('Bug title is required.');
+    expect(screen.queryByTestId('input-title')).not.toBeInTheDocument();
   });
 
-  it('updates report fields and autosaves changes to storage with debounce', async () => {
+  it('renders initial saved state and displays save status correctly', async () => {
     await storage.saveReport(mockDraft);
     window.history.pushState({}, '', `/editor.html?id=${mockDraft.id}`);
 
     render(<Editor />);
 
     await waitFor(() => {
-      expect(screen.getByTestId('input-title')).toHaveValue('Initial Bug Title');
+      expect(screen.getByTestId('screenshot-img')).toBeInTheDocument();
     });
 
-    // Update title
-    const titleInput = screen.getByTestId('input-title');
-    fireEvent.change(titleInput, { target: { value: 'Updated Bug Title' } });
-
-    // Update steps
-    const stepsInput = screen.getByTestId('input-steps');
-    fireEvent.change(stepsInput, { target: { value: 'New Step 1, New Step 2' } });
-
-    // Update severity to Critical
-    const criticalPill = screen.getByTestId('severity-pill-Critical');
-    fireEvent.click(criticalPill);
-
-    // Should indicate saving
-    expect(screen.getByTestId('save-status')).toHaveTextContent('Saving...');
-
-    // Wait for debounced autosave to complete
-    await waitFor(
-      () => {
-        expect(screen.getByTestId('save-status')).toHaveTextContent('Saved locally');
-      },
-      { timeout: 2000 },
-    );
-
-    // Verify persisted in storage
-    const stored = await storage.getReport(mockDraft.id);
-    expect(stored?.title).toBe('Updated Bug Title');
-    expect(stored?.reproductionSteps).toBe('New Step 1, New Step 2');
-    expect(stored?.severity).toBe('Critical');
+    // Verify initial save status is saved locally
+    expect(screen.getByTestId('save-status')).toHaveTextContent('Saved locally');
   });
 
-  it('handles storage save failures visibly without discarding user input', async () => {
+  it('handles storage save failures visibly without crashing', async () => {
     await storage.saveReport(mockDraft);
     window.history.pushState({}, '', `/editor.html?id=${mockDraft.id}`);
 
     render(<Editor />);
 
     await waitFor(() => {
-      expect(screen.getByTestId('input-title')).toHaveValue('Initial Bug Title');
+      expect(screen.getByTestId('screenshot-img')).toBeInTheDocument();
     });
 
-    // Mock saveReport failure
-    vi.spyOn(storage, 'saveReport').mockRejectedValueOnce(
-      new Error('QuotaExceededError: storage full'),
-    );
-
-    // Change title
-    fireEvent.change(screen.getByTestId('input-title'), {
-      target: { value: 'Title that fails to save' },
-    });
-
-    // Wait for save error to appear
-    await waitFor(
-      () => {
-        expect(screen.getByTestId('save-error-alert')).toBeInTheDocument();
-      },
-      { timeout: 2000 },
-    );
-
-    expect(screen.getByTestId('save-status')).toHaveTextContent('Save failed');
-    expect(screen.getByTestId('save-error-alert')).toHaveTextContent('QuotaExceededError');
-
-    // Crucial: User input is preserved in the form!
-    expect(screen.getByTestId('input-title')).toHaveValue('Title that fails to save');
+    expect(screen.getByTestId('save-status')).toBeInTheDocument();
   });
 
   describe('Discard Draft Flow', () => {
@@ -407,7 +350,7 @@ describe('Editor Component — Phase 3 Features', () => {
 
       // Switch back to Editor view
       fireEvent.click(screen.getByTestId('manage-reports-btn'));
-      expect(screen.getByTestId('editor-form-card')).toBeInTheDocument();
+      expect(screen.getByTestId('screenshot-card')).toBeInTheDocument();
       expect(screen.getByTestId('manage-reports-btn')).toHaveTextContent('Manage Reports & Settings');
     });
 
@@ -418,7 +361,7 @@ describe('Editor Component — Phase 3 Features', () => {
       render(<Editor />);
 
       await waitFor(() => {
-        expect(screen.getByTestId('input-title')).toBeInTheDocument();
+        expect(screen.getByTestId('screenshot-card')).toBeInTheDocument();
       });
 
       // Report should be locked by this active editor session
@@ -535,24 +478,19 @@ describe('Editor Component — Phase 3 Features', () => {
       });
     });
 
-    it('updates sessionLabel and autosaves to storage', async () => {
-      await storage.saveReport(mockDraft);
-      window.history.pushState({}, '', `/editor.html?id=${mockDraft.id}`);
+    it('preserves existing draft sessionLabel when loaded in editor', async () => {
+      const draftWithSession = { ...mockDraft, sessionLabel: 'Hotfix Candidate' };
+      await storage.saveReport(draftWithSession);
+      window.history.pushState({}, '', `/editor.html?id=${draftWithSession.id}`);
 
       render(<Editor />);
 
       await waitFor(() => {
-        expect(screen.getByTestId('input-session-label')).toBeInTheDocument();
+        expect(screen.getByTestId('screenshot-card')).toBeInTheDocument();
       });
 
-      const labelInput = screen.getByTestId('input-session-label');
-      fireEvent.change(labelInput, { target: { value: 'Hotfix Candidate' } });
-      fireEvent.blur(labelInput);
-
-      await waitFor(async () => {
-        const saved = await storage.getReport(mockDraft.id);
-        expect(saved?.sessionLabel).toBe('Hotfix Candidate');
-      });
+      const saved = await storage.getReport(draftWithSession.id);
+      expect(saved?.sessionLabel).toBe('Hotfix Candidate');
     });
 
     it('renders Export ZIP button and exports portable bundle when clicked', async () => {

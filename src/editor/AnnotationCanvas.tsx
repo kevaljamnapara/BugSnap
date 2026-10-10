@@ -25,8 +25,6 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
   annotations,
   onAnnotationsChange,
   onCompositeRendered,
-  onCopyScreenshot,
-  onCopyReport,
   onExportReport,
 }) => {
   const [activeTool, setActiveTool] = useState<AnnotationType | 'view'>('rectangle');
@@ -319,6 +317,8 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
           </button>
         </div>
 
+        <div className="toolbar-divider" aria-hidden="true" />
+
         <div className="toolbar-group">
           <button
             type="button"
@@ -352,31 +352,10 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
           </button>
         </div>
 
-        {(onCopyScreenshot || onCopyReport || onExportReport) && (
-          <div className="toolbar-group toolbar-group-actions">
-            {onCopyScreenshot && (
-              <button
-                type="button"
-                className="tool-btn tool-btn-action"
-                onClick={onCopyScreenshot}
-                data-testid="canvas-copy-screenshot-btn"
-                title="Copy screenshot to clipboard"
-              >
-                📋 Copy Image
-              </button>
-            )}
-            {onCopyReport && (
-              <button
-                type="button"
-                className="tool-btn tool-btn-action"
-                onClick={onCopyReport}
-                data-testid="canvas-copy-report-btn"
-                title="Copy Markdown bug report to clipboard"
-              >
-                📝 Copy Report
-              </button>
-            )}
-            {onExportReport && (
+        {onExportReport && (
+          <>
+            <div className="toolbar-divider" aria-hidden="true" />
+            <div className="toolbar-group toolbar-group-actions">
               <button
                 type="button"
                 className="tool-btn tool-btn-action tool-btn-accent"
@@ -384,10 +363,10 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
                 data-testid="canvas-export-btn"
                 title="Download Markdown report and screenshot evidence"
               >
-                💾 Export
+                Export
               </button>
-            )}
-          </div>
+            </div>
+          </>
         )}
       </div>
 

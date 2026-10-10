@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import './Editor.css';
-import { APP_NAME, SEVERITY_LEVELS, EDIT_LOCK_HEARTBEAT_INTERVAL_MS } from '../shared/constants';
-import { BugReport, Severity, Annotation } from '../shared/types';
+import { APP_NAME, EDIT_LOCK_HEARTBEAT_INTERVAL_MS } from '../shared/constants';
+import { BugReport, Annotation } from '../shared/types';
 import {
   getReport,
   saveReport,
@@ -24,11 +24,9 @@ import {
 import { ReportManagement } from './ReportManagement';
 import { cropImageDataUrl } from '../shared/cropUtils';
 import { DebugTimeline } from './DebugTimeline';
-import { ReproductionStepsRecorder } from './ReproductionStepsRecorder';
 import { EnvironmentDiagnostics } from './EnvironmentDiagnostics';
 import { EvidenceReview } from './EvidenceReview';
 import { generateAiDebugPrompt } from '../shared/aiPrompt';
-import { EvidencePresets } from './EvidencePresets';
 import { createPortableBundle } from '../shared/portableBundle';
 import { initTheme } from '../shared/theme';
 import { ThemeSwitcher } from '../shared/ThemeSwitcher';
@@ -47,29 +45,17 @@ export const Editor: React.FC = () => {
     `session-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
   );
 
-  // Form Fields State
-  const [title, setTitle] = useState<string>('');
-  const [sessionLabel, setSessionLabel] = useState<string>('');
-  const [severity, setSeverity] = useState<Severity>('Medium');
-  const [reproductionSteps, setReproductionSteps] = useState<string>('');
-  const [expectedBehavior, setExpectedBehavior] = useState<string>('');
-  const [actualBehavior, setActualBehavior] = useState<string>('');
-  const [additionalNotes, setAdditionalNotes] = useState<string>('');
-
   // Annotation State
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [annotatedScreenshotDataUrl, setAnnotatedScreenshotDataUrl] = useState<string | undefined>(
     undefined,
   );
 
-  // Form Validation State
-  const [titleTouched, setTitleTouched] = useState<boolean>(false);
-
   // Autosave & Persistence State
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [saveError, setSaveError] = useState<string | null>(null);
-  const isDirtyRef = useRef<boolean>(false);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [showSidePanel, setShowSidePanel] = useState<boolean>(true);
 
   // Export State
   const [isExporting, setIsExporting] = useState<boolean>(false);
@@ -110,13 +96,6 @@ export const Editor: React.FC = () => {
           }
         }
         setDraft(loaded);
-        setTitle(loaded.title || '');
-        setSessionLabel(loaded.sessionLabel || '');
-        setSeverity(loaded.severity || 'Medium');
-        setReproductionSteps(loaded.reproductionSteps || '');
-        setExpectedBehavior(loaded.expectedBehavior || '');
-        setActualBehavior(loaded.actualBehavior || '');
-        setAdditionalNotes(loaded.additionalNotes || '');
         setAnnotations(loaded.annotations || []);
         setAnnotatedScreenshotDataUrl(loaded.annotatedScreenshotDataUrl);
         setSaveStatus('saved');
@@ -180,19 +159,9 @@ export const Editor: React.FC = () => {
     };
   }, [draftId]);
 
-  // Autosave Function
+  // Autosave Function for Annotations
   const triggerSave = useCallback(
-    async (updatedFields: {
-      title: string;
-      sessionLabel?: string;
-      severity: Severity;
-      reproductionSteps: string;
-      expectedBehavior: string;
-      actualBehavior: string;
-      additionalNotes: string;
-      annotations?: Annotation[];
-      annotatedScreenshotDataUrl?: string;
-    }) => {
+    async (updatedAnnotations?: Annotation[], updatedScreenshot?: string) => {
       if (!draft) return;
 
       // Renew session lock on each save activity
@@ -202,15 +171,14 @@ export const Editor: React.FC = () => {
       setSaveError(null);
 
       const nextAnnotations =
-        updatedFields.annotations !== undefined ? updatedFields.annotations : annotations;
+        updatedAnnotations !== undefined ? updatedAnnotations : annotations;
       const nextAnnotatedScreenshot =
-        updatedFields.annotatedScreenshotDataUrl !== undefined
-          ? updatedFields.annotatedScreenshotDataUrl
+        updatedScreenshot !== undefined
+          ? updatedScreenshot
           : annotatedScreenshotDataUrl;
 
       const updatedReport: BugReport = {
         ...draft,
-        ...updatedFields,
         annotations: nextAnnotations,
         annotatedScreenshotDataUrl: nextAnnotatedScreenshot,
         updatedAt: new Date().toISOString(),
@@ -230,71 +198,9 @@ export const Editor: React.FC = () => {
     [draft, annotations, annotatedScreenshotDataUrl],
   );
 
-  // Debounced Autosave Trigger for form fields
-  const handleFieldChange = (
-    field: 'title' | 'sessionLabel' | 'severity' | 'reproductionSteps' | 'expectedBehavior' | 'actualBehavior' | 'additionalNotes',
-    value: string,
-  ) => {
-    isDirtyRef.current = true;
-
-    const newValues = {
-      title: field === 'title' ? value : title,
-      sessionLabel: field === 'sessionLabel' ? value : sessionLabel,
-      severity: field === 'severity' ? (value as Severity) : severity,
-      reproductionSteps: field === 'reproductionSteps' ? value : reproductionSteps,
-      expectedBehavior: field === 'expectedBehavior' ? value : expectedBehavior,
-      actualBehavior: field === 'actualBehavior' ? value : actualBehavior,
-      additionalNotes: field === 'additionalNotes' ? value : additionalNotes,
-    };
-
-    if (field === 'title') setTitle(value);
-    if (field === 'sessionLabel') setSessionLabel(value);
-    if (field === 'severity') setSeverity(value as Severity);
-    if (field === 'reproductionSteps') setReproductionSteps(value);
-    if (field === 'expectedBehavior') setExpectedBehavior(value);
-    if (field === 'actualBehavior') setActualBehavior(value);
-    if (field === 'additionalNotes') setAdditionalNotes(value);
-
-    setSaveStatus('saving');
-
-    if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current);
-    }
-
-    debounceTimerRef.current = setTimeout(() => {
-      triggerSave({
-        ...newValues,
-        annotations,
-        annotatedScreenshotDataUrl,
-      });
-    }, 400);
-  };
-
-  // Immediate Save on Blur (e.g. user leaves field)
-  const handleFieldBlur = () => {
-    if (isDirtyRef.current && draft) {
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
-      }
-      triggerSave({
-        title,
-        sessionLabel,
-        severity,
-        reproductionSteps,
-        expectedBehavior,
-        actualBehavior,
-        additionalNotes,
-        annotations,
-        annotatedScreenshotDataUrl,
-      });
-      isDirtyRef.current = false;
-    }
-  };
-
   // Immediate Autosave on Annotation change
   const handleAnnotationsChange = (newAnnotations: Annotation[]) => {
     setAnnotations(newAnnotations);
-    isDirtyRef.current = true;
     setSaveStatus('saving');
 
     if (debounceTimerRef.current) {
@@ -302,16 +208,7 @@ export const Editor: React.FC = () => {
     }
 
     debounceTimerRef.current = setTimeout(() => {
-      triggerSave({
-        title,
-        severity,
-        reproductionSteps,
-        expectedBehavior,
-        actualBehavior,
-        additionalNotes,
-        annotations: newAnnotations,
-        annotatedScreenshotDataUrl,
-      });
+      triggerSave(newAnnotations, annotatedScreenshotDataUrl);
     }, 400);
   };
 
@@ -330,16 +227,7 @@ export const Editor: React.FC = () => {
 
   // Manual Retry for Failed Save
   const handleRetrySave = () => {
-    triggerSave({
-      title,
-      severity,
-      reproductionSteps,
-      expectedBehavior,
-      actualBehavior,
-      additionalNotes,
-      annotations,
-      annotatedScreenshotDataUrl,
-    });
+    triggerSave(annotations, annotatedScreenshotDataUrl);
   };
 
   // Export Report Flow
@@ -350,16 +238,10 @@ export const Editor: React.FC = () => {
     setExportError(null);
     setExportSuccessMessage(null);
 
-    const effectiveTitle = title.trim() || draft.metadata.title || 'Untitled Bug';
+    const effectiveTitle = draft.title || deriveReportSummary(draft);
     const reportToExport: BugReport = {
       ...draft,
       title: effectiveTitle,
-      sessionLabel: sessionLabel.trim() || undefined,
-      severity,
-      reproductionSteps,
-      expectedBehavior,
-      actualBehavior,
-      additionalNotes,
       annotations,
       annotatedScreenshotDataUrl,
     };
@@ -385,16 +267,10 @@ export const Editor: React.FC = () => {
     setExportSuccessMessage(null);
 
     try {
-      const effectiveTitle = title.trim() || draft.metadata.title || 'Untitled Bug';
+      const effectiveTitle = draft.title || deriveReportSummary(draft);
       const reportToExport: BugReport = {
         ...draft,
         title: effectiveTitle,
-        sessionLabel: sessionLabel.trim() || undefined,
-        severity,
-        reproductionSteps,
-        expectedBehavior,
-        actualBehavior,
-        additionalNotes,
         annotations,
         annotatedScreenshotDataUrl,
       };
@@ -449,17 +325,14 @@ export const Editor: React.FC = () => {
     setCopyError(null);
     setCopyFeedback(null);
     try {
-      const effectiveTitle = title.trim() || draft.metadata.title || 'Untitled Bug';
+      const effectiveTitle = draft.title || deriveReportSummary(draft);
       const stem = generateFilenameStem(effectiveTitle, draft.metadata.capturedAt);
       const mdContent = generateMarkdownReport(
         {
           ...draft,
           title: effectiveTitle,
-          severity,
-          reproductionSteps,
-          expectedBehavior,
-          actualBehavior,
-          additionalNotes,
+          annotations,
+          annotatedScreenshotDataUrl,
         },
         stem,
       );
@@ -487,16 +360,10 @@ export const Editor: React.FC = () => {
     setCopyCompleteFeedback(null);
 
     try {
-      const effectiveTitle = title.trim() || deriveReportSummary(draft);
+      const effectiveTitle = draft.title || deriveReportSummary(draft);
       const reportToCopy: BugReport = {
         ...draft,
         title: effectiveTitle,
-        sessionLabel: sessionLabel.trim() || undefined,
-        severity,
-        reproductionSteps,
-        expectedBehavior,
-        actualBehavior,
-        additionalNotes,
         annotations,
         annotatedScreenshotDataUrl,
       };
@@ -596,11 +463,9 @@ export const Editor: React.FC = () => {
 
   const handleCopyAiPrompt = async () => {
     if (!draft || !navigator.clipboard?.writeText) return setCopyError('Clipboard prompt copy is unavailable in this browser.');
-    await navigator.clipboard.writeText(generateAiDebugPrompt({ ...draft, title, sessionLabel: sessionLabel.trim() || undefined, severity, reproductionSteps, expectedBehavior, actualBehavior, additionalNotes }));
+    await navigator.clipboard.writeText(generateAiDebugPrompt(draft));
     setCopyFeedback('Detailed AI-ready debugging prompt copied locally.');
   };
-
-  const isTitleEmpty = title.trim().length === 0;
 
   return (
     <div className="editor-layout">
@@ -647,12 +512,22 @@ export const Editor: React.FC = () => {
               {viewMode === 'editor' ? 'Manage Reports & Settings' : '← Back to Editor'}
             </button>
 
-            {/* Quick Copy / AI Actions */}
+            {/* Quick Secondary Export Actions */}
             {draft && !isDiscarded && viewMode === 'editor' && (
-              <div className="btn-segmented-group">
+              <>
                 <button
                   type="button"
-                  className="btn btn-secondary btn-sm btn-segmented"
+                  className="btn btn-secondary btn-sm"
+                  onClick={handleExportZip}
+                  disabled={isExporting}
+                  data-testid="export-zip-btn"
+                  title="Download portable ZIP bundle with report and diagnostics"
+                >
+                  Export ZIP
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
                   onClick={handleCopyReport}
                   data-testid="copy-report-btn"
                   title="Copy Markdown bug report to clipboard"
@@ -661,7 +536,7 @@ export const Editor: React.FC = () => {
                 </button>
                 <button
                   type="button"
-                  className="btn btn-secondary btn-sm btn-segmented"
+                  className="btn btn-ghost btn-sm"
                   onClick={handleCopyScreenshot}
                   data-testid="copy-screenshot-btn"
                   title="Copy screenshot image to clipboard"
@@ -670,13 +545,24 @@ export const Editor: React.FC = () => {
                 </button>
                 <button
                   type="button"
-                  className="btn btn-secondary btn-sm btn-segmented"
+                  className="btn btn-ghost btn-sm"
                   onClick={handleCopyAiPrompt}
-                  title="Copy AI debug prompt to clipboard"
+                  data-testid="copy-ai-prompt-btn"
+                  title="Copy AI debugging prompt to clipboard"
                 >
                   AI Prompt
                 </button>
-              </div>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={handleExport}
+                  disabled={isExporting}
+                  data-testid="export-report-btn"
+                  title="Download Markdown report and screenshot evidence"
+                >
+                  Export Report
+                </button>
+              </>
             )}
 
             {draft?.debugSession?.status === 'active' && viewMode === 'editor' && (
@@ -705,38 +591,28 @@ export const Editor: React.FC = () => {
 
           <div className="header-divider" aria-hidden="true" />
 
-          {/* Primary Export Actions Cluster */}
+          {/* Primary One-Click Action Button */}
           {draft && !isDiscarded && viewMode === 'editor' && (
             <div className="header-cluster header-cluster-primary">
               <button
                 type="button"
-                className="btn btn-primary btn-sm btn-prominent"
+                className="btn btn-primary btn-sm btn-prominent btn-hero-copy"
                 onClick={handleCopyCompleteReport}
                 disabled={isCopyingComplete}
-                data-testid="header-copy-complete-btn"
-                title="Copy complete bug report and screenshot to clipboard"
+                data-testid="copy-complete-report-btn"
+                title="Copy screenshot, complete bug report, and AI prompt to clipboard"
               >
-                {isCopyingComplete ? 'Copying...' : 'Copy Complete Report'}
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={handleExportZip}
-                disabled={isExporting}
-                data-testid="export-zip-btn"
-                title="Download portable ZIP bundle with report and diagnostics"
-              >
-                Export ZIP
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={handleExport}
-                disabled={isExporting}
-                data-testid="export-report-btn"
-                title="Download Markdown report and screenshot evidence"
-              >
-                {isExporting ? 'Exporting...' : 'Export Report'}
+                {isCopyingComplete ? (
+                  <>
+                    <span className="spinner-sm" aria-hidden="true" />
+                    <span>Copying...</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="hero-btn-icon" aria-hidden="true">📋</span>
+                    <span>Copy Complete Bug Report</span>
+                  </>
+                )}
               </button>
             </div>
           )}
@@ -855,6 +731,20 @@ export const Editor: React.FC = () => {
         </div>
       )}
 
+      {/* No Draft ID State: Shows guidance and displays ReportManagement below */}
+      {!isLoading && !draftId && !errorMessage && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <div className="editor-alert editor-alert-info" data-testid="editor-empty">
+            <strong>No report draft selected.</strong>
+            <p style={{ margin: '8px 0 0 0' }}>
+              Open the BugSnap extension popup on any webpage and click &quot;Capture Bug&quot;
+              to capture a new defect report, or manage existing reports and retention settings below.
+            </p>
+          </div>
+          <ReportManagement onOpenReport={handleOpenReportFromManagement} />
+        </div>
+      )}
+
       {/* Error State: Display error message and ReportManagement for recovery */}
       {!isLoading && errorMessage && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -879,41 +769,17 @@ export const Editor: React.FC = () => {
         <>
           {draft && !isDiscarded && (
             <>
-              {/* One-Click Bug Report Hero Card */}
-              <section className="editor-card one-click-card" data-testid="one-click-action-card">
-                <div className="one-click-header">
-                  <div className="one-click-summary-preview">
-                    <span className="one-click-label">Target Bug Summary (Auto-Derived)</span>
-                    <h2 className="one-click-title" data-testid="derived-summary-preview">
-                      {title.trim() || deriveReportSummary(draft)}
-                    </h2>
-                  </div>
-                  <div className="one-click-actions">
-                    <button
-                      type="button"
-                      className="btn btn-primary btn-hero-copy"
-                      onClick={handleCopyCompleteReport}
-                      disabled={isCopyingComplete}
-                      data-testid="copy-complete-report-btn"
-                    >
-                      {isCopyingComplete ? (
-                        <>
-                          <span className="spinner-sm" aria-hidden="true" />
-                          <span>Assembling &amp; Copying...</span>
-                        </>
-                      ) : (
-                        <>
-                          <span className="hero-btn-icon" aria-hidden="true">📋</span>
-                          <span>Copy Complete Bug Report</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
+              {/* Minimal Evidence Sub-bar with Summary and Diagnostic Chips */}
+              <div className="editor-subbar" data-testid="one-click-action-card">
+                <div className="subbar-summary">
+                  <span className="subbar-label">Summary:</span>
+                  <strong className="subbar-title" data-testid="derived-summary-preview">
+                    {(draft.title && draft.title.trim()) || deriveReportSummary(draft)}
+                  </strong>
                 </div>
 
-                {/* Evidence Readiness Summary Bar */}
                 <div className="evidence-summary-bar" data-testid="evidence-summary-bar">
-                  <div className="evidence-summary-title">Collected Evidence Sources:</div>
+                  <div className="evidence-summary-title">Evidence:</div>
                   <div className="evidence-chips-list">
                     <div
                       className={`evidence-chip ${draft.screenshotDataUrl ? 'chip-ready' : 'chip-missing'}`}
@@ -959,320 +825,159 @@ export const Editor: React.FC = () => {
 
                     <div className="evidence-chip chip-privacy" data-testid="chip-privacy">
                       <span className="chip-icon">🔒</span>
-                      <span>Privacy: Auto-redaction active (₹0 offline)</span>
+                      <span>Privacy: Offline (₹0)</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Real-time Copy Complete Feedback */}
-                {copyCompleteFeedback && (
-                  <div
-                    className={`one-click-feedback ${copyCompleteFeedback.success ? 'feedback-success' : 'feedback-error'}`}
-                    data-testid="copy-complete-feedback"
-                    role="status"
+                <div className="subbar-actions">
+                  <button
+                    type="button"
+                    className={`btn btn-sm ${showSidePanel ? 'btn-secondary-active' : 'btn-secondary'}`}
+                    onClick={() => setShowSidePanel(!showSidePanel)}
+                    data-testid="toggle-diagnostics-btn"
+                    title="Toggle Page Context & Diagnostics panel"
                   >
-                    <div className="feedback-content">
-                      <span className="feedback-icon">{copyCompleteFeedback.success ? '✅' : '⚠️'}</span>
-                      <div className="feedback-text-block">
-                        <strong>
-                          {copyCompleteFeedback.success
-                            ? copyCompleteFeedback.combined
-                              ? 'Copied Successfully!'
-                              : 'Copied with Screenshot Download'
-                            : 'Copy Failed'}
-                        </strong>
-                        <p className="feedback-message">{copyCompleteFeedback.message}</p>
-                        {copyCompleteFeedback.fallbackScreenshotSaved && (
-                          <p className="feedback-tip">
-                            💡 <em>Browser security policy restricted combining image and text in a single clipboard write. The screenshot was automatically saved to your downloads folder so all evidence is preserved.</em>
-                          </p>
-                        )}
-                      </div>
+                    <span>{showSidePanel ? 'Hide Context ✕' : 'ℹ️ Page Context & Diagnostics'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Real-time Copy Complete Feedback */}
+              {copyCompleteFeedback && (
+                <div
+                  className={`one-click-feedback ${copyCompleteFeedback.success ? 'feedback-success' : 'feedback-error'}`}
+                  data-testid="copy-complete-feedback"
+                  role="status"
+                >
+                  <div className="feedback-content">
+                    <span className="feedback-icon">{copyCompleteFeedback.success ? '✅' : '⚠️'}</span>
+                    <div className="feedback-text-block">
+                      <strong>
+                        {copyCompleteFeedback.success
+                          ? copyCompleteFeedback.combined
+                            ? 'Copied Successfully!'
+                            : 'Report and AI prompt copied; screenshot saved separately.'
+                          : 'Copy Failed'}
+                      </strong>
+                      <p className="feedback-message">{copyCompleteFeedback.message}</p>
                     </div>
                   </div>
-                )}
-              </section>
+                </div>
+              )}
 
-              <div className="editor-diagnostics-container">
-                {draft.debugSession && (
-                  <section className="editor-alert editor-alert-info diagnostics-panel" data-testid="console-session-summary">
-                    <div className="diagnostics-panel-header">
-                      <h2 style={{ margin: 0 }}>
-                        Runtime error session: {draft.debugSession.status === 'active' ? 'collecting supported page errors' : 'stopped'}
-                      </h2>
-                      <span className="diagnostics-badge">Debug session</span>
-                    </div>
-                    <p style={{ margin: '6px 0 0' }}>
-                      Captured <strong>{draft.debugSession.consoleEvents.length}</strong> runtime event
-                      {draft.debugSession.consoleEvents.length === 1 ? '' : 's'} and{' '}
-                      <strong>{draft.debugSession.networkEvents?.length || 0}</strong> observable network resource
-                      {(draft.debugSession.networkEvents?.length || 0) === 1 ? '' : 's'}.
-                    </p>
-                    <p className="diagnostics-footer-note">
-                      BugSnap cannot read the complete DevTools console. Only supported `error` and
-                      `unhandledrejection` events and resource timing metadata from this explicit session
-                      are collected locally. Resource metadata does not prove an HTTP error or a failed request.
-                    </p>
-                  </section>
-                )}
-                {draft.debugSession && <DebugTimeline session={draft.debugSession} />}
-                {draft.debugSession && <EvidenceReview session={draft.debugSession} onChange={handleEvidenceReviewChange} />}
-                <EnvironmentDiagnostics metadata={draft.metadata} />
-                <EvidencePresets />
-              </div>
-            </>
-          )}
-          {/* No Draft ID State: Shows guidance and displays ReportManagement below */}
-          {!isLoading && !draftId && !errorMessage && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              <div className="editor-alert editor-alert-info" data-testid="editor-empty">
-                <strong>No report draft selected.</strong>
-                <p style={{ margin: '8px 0 0 0' }}>
-                  Open the BugSnap extension popup on any webpage and click &quot;Capture Bug&quot;
-                  to capture a new defect report, or manage existing reports and retention settings below.
-                </p>
-              </div>
-              <ReportManagement onOpenReport={handleOpenReportFromManagement} />
-            </div>
-          )}
-
-          {/* Main Editor Form & Evidence Grid */}
-          {!isLoading && draft && !isDiscarded && (
-            <main className="editor-grid">
-              {/* Left Column: Visual Evidence & Annotations + Page Context */}
-              <div className="evidence-column">
-                {/* Visual Evidence & Annotation Canvas */}
-                <section className="editor-card" data-testid="screenshot-card">
-                  <h2>Visual Evidence &amp; Annotations</h2>
+              {/* Full-Screen Workspace Body */}
+              <div className="editor-main-body">
+                {/* Visual Evidence Full-Screen Canvas */}
+                <main className="screenshot-fullscreen-container" data-testid="screenshot-card">
                   {draft.screenshotDataUrl ? (
-                    <div className="screenshot-preview-container">
+                    <div className="fullscreen-canvas-wrapper">
                       <AnnotationCanvas
                         imageSrc={draft.screenshotDataUrl}
                         annotations={annotations}
                         onAnnotationsChange={handleAnnotationsChange}
                         onCompositeRendered={handleCompositeRendered}
-                        onCopyScreenshot={handleCopyScreenshot}
-                        onCopyReport={handleCopyReport}
                         onExportReport={handleExport}
                       />
-                      <div className="screenshot-footer">
-                        <span>Captured tab viewport</span>
-                        {draft.metadata.viewport && (
-                          <span>
-                            {draft.metadata.viewport.width} × {draft.metadata.viewport.height} px
-                          </span>
-                        )}
-                      </div>
                     </div>
                   ) : (
-                    <p style={{ color: 'var(--text-muted)' }}>No screenshot image available.</p>
+                    <div className="empty-screenshot-placeholder">
+                      <p>No screenshot image available.</p>
+                    </div>
                   )}
-                </section>
+                </main>
 
-                {/* Page Metadata */}
-                <section className="editor-card" data-testid="metadata-card">
-                  <h2>Page Context</h2>
-                  <div className="metadata-grid">
-                    <div className="metadata-item">
-                      <span className="metadata-label">Page Title</span>
-                      <span className="metadata-value" data-testid="meta-title">
-                        {draft.metadata.title || 'Untitled page'}
-                      </span>
+                {/* Collapsible Page Context & Diagnostics Panel */}
+                <aside
+                  className={`editor-sidebar-panel ${showSidePanel ? 'sidebar-open' : 'sidebar-collapsed'}`}
+                  data-testid="metadata-card"
+                  aria-label="Page Context and Diagnostics"
+                >
+                  <div className="sidebar-section">
+                    <div className="sidebar-header">
+                      <h3>Page Context</h3>
                     </div>
-
-                    <div className="metadata-item">
-                      <span className="metadata-label">Page URL</span>
-                      <span className="metadata-value" data-testid="meta-url">
-                        {draft.metadata.url ? (
-                          <a
-                            href={draft.metadata.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="metadata-link"
-                          >
-                            {draft.metadata.url}
-                          </a>
-                        ) : (
-                          'Unavailable'
-                        )}
-                      </span>
-                    </div>
-
-                    <div className="metadata-item">
-                      <span className="metadata-label">Captured At</span>
-                      <span className="metadata-value" data-testid="meta-captured-at">
-                        {new Date(draft.metadata.capturedAt).toLocaleString()}
-                      </span>
-                    </div>
-
-                    {draft.metadata.viewport && (
-                      <div className="metadata-item" data-testid="meta-viewport">
-                        <span className="metadata-label">Viewport</span>
-                        <span className="metadata-value">
-                          {draft.metadata.viewport.width} × {draft.metadata.viewport.height} px
+                    <div className="metadata-grid">
+                      <div className="metadata-item">
+                        <span className="metadata-label">Page Title</span>
+                        <span className="metadata-value" data-testid="meta-title">
+                          {draft.metadata.title || 'Untitled page'}
                         </span>
                       </div>
-                    )}
 
-                    {draft.metadata.platform && (
-                      <div className="metadata-item" data-testid="meta-platform">
-                        <span className="metadata-label">Platform</span>
-                        <span className="metadata-value">{draft.metadata.platform}</span>
+                      <div className="metadata-item">
+                        <span className="metadata-label">Page URL</span>
+                        <span className="metadata-value" data-testid="meta-url">
+                          {draft.metadata.url ? (
+                            <a
+                              href={draft.metadata.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="metadata-link"
+                            >
+                              {draft.metadata.url}
+                            </a>
+                          ) : (
+                            'Unavailable'
+                          )}
+                        </span>
                       </div>
-                    )}
-                  </div>
-                </section>
-              </div>
 
-              {/* Right Column: Optional Manual Details Disclosure */}
-              <details className="editor-card optional-details-card" data-testid="editor-form-card" open>
-                <summary className="optional-details-summary">
-                  <div className="optional-summary-header">
-                    <h2>Optional Defect Details</h2>
-                    <span className="optional-badge">Optional override</span>
-                  </div>
-                  <span className="optional-chevron-hint">▾</span>
-                </summary>
+                      <div className="metadata-item">
+                        <span className="metadata-label">Captured At</span>
+                        <span className="metadata-value" data-testid="meta-captured-at">
+                          {new Date(draft.metadata.capturedAt).toLocaleString()}
+                        </span>
+                      </div>
 
-                <div className="optional-fields-content">
-                  <p className="optional-intro-text">
-                    Manual fields are optional. BugSnap derives titles and diagnostic evidence automatically.
-                  </p>
+                      {draft.metadata.viewport && (
+                        <div className="metadata-item" data-testid="meta-viewport">
+                          <span className="metadata-label">Viewport</span>
+                          <span className="metadata-value">
+                            {draft.metadata.viewport.width} × {draft.metadata.viewport.height} px
+                          </span>
+                        </div>
+                      )}
 
-                  {/* Bug Title */}
-                  <div className="form-group">
-                    <label htmlFor="report-title" className="form-label">
-                      Bug Title <span className="optional-hint-tag">(optional — auto-derived if blank)</span>
-                    </label>
-                    <input
-                      id="report-title"
-                      name="title"
-                      type="text"
-                      className={`form-input ${titleTouched && isTitleEmpty ? 'form-input-error' : ''}`}
-                      placeholder="e.g. Checkout button misaligned on mobile viewport"
-                      value={title}
-                      onChange={(e) => handleFieldChange('title', e.target.value)}
-                      onBlur={() => {
-                        setTitleTouched(true);
-                        handleFieldBlur();
-                      }}
-                      data-testid="input-title"
-                      aria-required="false"
-                      aria-invalid={titleTouched && isTitleEmpty}
-                    />
-                    {titleTouched && isTitleEmpty && (
-                      <span className="field-error-text" data-testid="title-error">
-                        Bug title is required.
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Session Label (Optional) */}
-                  <div className="form-group">
-                    <label htmlFor="report-session-label" className="form-label">
-                      Session Label <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>(optional)</span>
-                    </label>
-                    <input
-                      id="report-session-label"
-                      name="sessionLabel"
-                      type="text"
-                      className="form-input"
-                      placeholder="e.g. Sprint 24, Staging Smoke Test"
-                      value={sessionLabel}
-                      onChange={(e) => handleFieldChange('sessionLabel', e.target.value)}
-                      onBlur={handleFieldBlur}
-                      data-testid="input-session-label"
-                    />
-                  </div>
-
-                  {/* Severity Selector */}
-                  <div className="form-group">
-                    <label className="form-label">Severity Level</label>
-                    <div
-                      className="severity-selector"
-                      role="radiogroup"
-                      aria-label="Severity Level"
-                      data-testid="severity-selector"
-                    >
-                      {SEVERITY_LEVELS.map((level) => (
-                        <button
-                          key={level}
-                          type="button"
-                          role="radio"
-                          aria-checked={severity === level}
-                          className={`severity-pill ${severity === level ? `severity-pill-active-${level}` : ''}`}
-                          onClick={() => handleFieldChange('severity', level)}
-                          data-testid={`severity-pill-${level}`}
-                        >
-                          {level}
-                        </button>
-                      ))}
+                      {draft.metadata.platform && (
+                        <div className="metadata-item" data-testid="meta-platform">
+                          <span className="metadata-label">Platform</span>
+                          <span className="metadata-value">{draft.metadata.platform}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
 
-                  {/* Reproduction Steps */}
-                  <ReproductionStepsRecorder
-                    value={reproductionSteps}
-                    pageUrl={draft?.metadata.url}
-                    onChange={(value) => handleFieldChange('reproductionSteps', value)}
-                  />
-
-                  {/* Expected Behavior */}
-                  <div className="form-group">
-                    <label htmlFor="report-expected" className="form-label">
-                      Expected Behavior
-                    </label>
-                    <textarea
-                      id="report-expected"
-                      name="expectedBehavior"
-                      className="form-textarea"
-                      rows={3}
-                      placeholder="Describe what should have happened..."
-                      value={expectedBehavior}
-                      onChange={(e) => handleFieldChange('expectedBehavior', e.target.value)}
-                      onBlur={handleFieldBlur}
-                      data-testid="input-expected"
-                    />
-                  </div>
-
-                  {/* Actual Behavior */}
-                  <div className="form-group">
-                    <label htmlFor="report-actual" className="form-label">
-                      Actual Behavior
-                    </label>
-                    <textarea
-                      id="report-actual"
-                      name="actualBehavior"
-                      className="form-textarea"
-                      rows={3}
-                      placeholder="Describe what actually happened..."
-                      value={actualBehavior}
-                      onChange={(e) => handleFieldChange('actualBehavior', e.target.value)}
-                      onBlur={handleFieldBlur}
-                      data-testid="input-actual"
-                    />
-                  </div>
-
-                  {/* Additional Notes */}
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label htmlFor="report-notes" className="form-label">
-                      Additional Notes
-                    </label>
-                    <textarea
-                      id="report-notes"
-                      name="additionalNotes"
-                      className="form-textarea"
-                      rows={3}
-                      placeholder="Console errors, device orientation, test credentials used..."
-                      value={additionalNotes}
-                      onChange={(e) => handleFieldChange('additionalNotes', e.target.value)}
-                      onBlur={handleFieldBlur}
-                      data-testid="input-notes"
-                    />
-                  </div>
-                </div>
-              </details>
-            </main>
+                  {/* Advanced Diagnostics Collapsible Section */}
+                  <details className="sidebar-diagnostics-disclosure">
+                    <summary className="sidebar-diagnostics-summary">
+                      <span>Diagnostics &amp; Session Data</span>
+                    </summary>
+                    <div className="sidebar-diagnostics-content">
+                      {draft.debugSession && (
+                        <div className="diagnostics-panel" data-testid="console-session-summary">
+                          <h4>
+                            Runtime error session:{' '}
+                            {draft.debugSession.status === 'active' ? 'collecting page errors' : 'stopped'}
+                          </h4>
+                          <p style={{ margin: '4px 0 0' }}>
+                            Captured <strong>{draft.debugSession.consoleEvents.length}</strong> runtime event
+                            {draft.debugSession.consoleEvents.length === 1 ? '' : 's'} and{' '}
+                            <strong>{draft.debugSession.networkEvents?.length || 0}</strong> network timing
+                            {(draft.debugSession.networkEvents?.length || 0) === 1 ? '' : 's'}.
+                          </p>
+                        </div>
+                      )}
+                      {draft.debugSession && <DebugTimeline session={draft.debugSession} />}
+                      {draft.debugSession && (
+                        <EvidenceReview session={draft.debugSession} onChange={handleEvidenceReviewChange} />
+                      )}
+                      <EnvironmentDiagnostics metadata={draft.metadata} />
+                    </div>
+                  </details>
+                </aside>
+              </div>
+            </>
           )}
         </>
       )}
