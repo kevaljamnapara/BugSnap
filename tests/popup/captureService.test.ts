@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { captureActiveTab } from './captureService';
-import { getReport, clearAllReports } from '../shared/storage';
+import { captureActiveTab } from '../../src/popup/captureService';
+import { getReport, clearAllReports } from '../../src/shared/storage';
 
 describe('captureService', () => {
   beforeEach(async () => {

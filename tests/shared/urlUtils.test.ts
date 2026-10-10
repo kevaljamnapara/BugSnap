@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isRestrictedUrl, getRestrictedUrlMessage } from './urlUtils';
+import { isRestrictedUrl, getRestrictedUrlMessage } from '../../src/shared/urlUtils';
 
 describe('urlUtils', () => {
   describe('isRestrictedUrl', () => {

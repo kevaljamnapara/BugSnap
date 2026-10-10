@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { initSelectionOverlay } from './selectionOverlay';
+import { initSelectionOverlay } from '../../src/content/selectionOverlay';
 
 describe('selectionOverlay — in-page region capture', () => {
   beforeEach(() => {

@@ -5,7 +5,7 @@ import {
   DEFAULT_SEVERITY,
   RETENTION_PERIOD_OPTIONS,
   DEFAULT_RETENTION_SETTINGS,
-} from './constants';
+} from '../../src/shared/constants';
 
 describe('Shared Constants', () => {
   it('has valid APP_NAME', () => {

@@ -1,8 +1,8 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ReportManagement } from './ReportManagement';
-import * as storage from '../shared/storage';
-import { BugReport } from '../shared/types';
+import { ReportManagement } from '../../src/editor/ReportManagement';
+import * as storage from '../../src/shared/storage';
+import { BugReport } from '../../src/shared/types';
 
 describe('ReportManagement Component', () => {
   beforeEach(async () => {

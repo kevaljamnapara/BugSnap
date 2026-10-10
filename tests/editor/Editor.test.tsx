@@ -1,8 +1,8 @@
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { Editor } from './Editor';
-import * as storage from '../shared/storage';
-import { BugReport } from '../shared/types';
+import { Editor } from '../../src/editor/Editor';
+import * as storage from '../../src/shared/storage';
+import { BugReport } from '../../src/shared/types';
 
 describe('Editor Component — Phase 3 Features', () => {
   beforeEach(async () => {

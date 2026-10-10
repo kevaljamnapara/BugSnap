@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { cropImageDataUrl } from './cropUtils';
-import { CropRegion } from './types';
+import { cropImageDataUrl } from '../../src/shared/cropUtils';
+import { CropRegion } from '../../src/shared/types';
 
 describe('cropUtils — cropImageDataUrl', () => {
   beforeEach(() => {

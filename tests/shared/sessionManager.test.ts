@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { createSession, duplicateSession, renameSession, searchSessions } from './sessionManager';
-import { BugReport } from './types';
+import { createSession, duplicateSession, renameSession, searchSessions } from '../../src/shared/sessionManager';
+import { BugReport } from '../../src/shared/types';
 
 const report: BugReport = {
   id: 'rep-test-1',

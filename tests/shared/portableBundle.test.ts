@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createPortableBundle } from './portableBundle';
+import { createPortableBundle } from '../../src/shared/portableBundle';
 
 describe('createPortableBundle', () => {
   it('creates a local zip blob with safe manifest entries and valid ZIP structure', async () => {

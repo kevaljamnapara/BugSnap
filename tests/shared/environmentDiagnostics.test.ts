@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildEnvironmentDiagnostics } from './environmentDiagnostics';
+import { buildEnvironmentDiagnostics } from '../../src/shared/environmentDiagnostics';
 
 describe('buildEnvironmentDiagnostics', () => {
   it('formats available context and marks missing values without fabrication', () => {

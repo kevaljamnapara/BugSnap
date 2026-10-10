@@ -16,8 +16,8 @@ import {
   isReportLocked,
   getEffectiveReportTimestamp,
   runRetentionCleanup,
-} from './storage';
-import { BugReport, RetentionPeriod } from './types';
+} from '../../src/shared/storage';
+import { BugReport, RetentionPeriod } from '../../src/shared/types';
 
 describe('storage module — Phase 5 Retention & Report Management', () => {
   beforeEach(async () => {
