@@ -27,7 +27,6 @@ import { DebugTimeline } from './DebugTimeline';
 import { EnvironmentDiagnostics } from './EnvironmentDiagnostics';
 import { EvidenceReview } from './EvidenceReview';
 import { generateAiDebugPrompt } from '../shared/aiPrompt';
-import { EvidencePresets } from './EvidencePresets';
 import { createPortableBundle } from '../shared/portableBundle';
 import { initTheme } from '../shared/theme';
 import { ThemeSwitcher } from '../shared/ThemeSwitcher';
@@ -950,7 +949,7 @@ export const Editor: React.FC = () => {
                   </div>
 
                   {/* Advanced Diagnostics Collapsible Section */}
-                  <details className="sidebar-diagnostics-disclosure" open>
+                  <details className="sidebar-diagnostics-disclosure">
                     <summary className="sidebar-diagnostics-summary">
                       <span>Diagnostics &amp; Session Data</span>
                     </summary>
@@ -974,7 +973,6 @@ export const Editor: React.FC = () => {
                         <EvidenceReview session={draft.debugSession} onChange={handleEvidenceReviewChange} />
                       )}
                       <EnvironmentDiagnostics metadata={draft.metadata} />
-                      <EvidencePresets />
                     </div>
                   </details>
                 </aside>
