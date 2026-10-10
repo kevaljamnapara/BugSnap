@@ -27,6 +27,8 @@ import { EvidenceReview } from './EvidenceReview';
 import { generateAiDebugPrompt } from '../shared/aiPrompt';
 import { EvidencePresets } from './EvidencePresets';
 import { createPortableBundle } from '../shared/portableBundle';
+import { initTheme } from '../shared/theme';
+import { ThemeSwitcher } from '../shared/ThemeSwitcher';
 
 export const Editor: React.FC = () => {
   const [draft, setDraft] = useState<BugReport | null>(null);
@@ -125,6 +127,7 @@ export const Editor: React.FC = () => {
 
   // Check query params on mount
   useEffect(() => {
+    initTheme();
     const params = new URLSearchParams(window.location.search);
     const id = params.get('id');
     setDraftId(id);
@@ -556,6 +559,7 @@ export const Editor: React.FC = () => {
         </div>
 
         <div className="header-actions">
+          <ThemeSwitcher />
           {/* Autosave Status Indicator */}
           {draft && !isDiscarded && viewMode === 'editor' && (
             <div className="save-status-container" data-testid="save-status">
