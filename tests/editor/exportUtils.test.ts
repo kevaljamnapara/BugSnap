@@ -148,9 +148,61 @@ describe('exportUtils', () => {
       expect(md).toContain('### Recorded Page Errors');
       expect(md).toContain('Cannot read property "foo" of undefined');
       expect(md).toContain('### Network & Resource Timings');
-      expect(md).toContain('https://example.com/api/data?token=[REDACTED]');
+      expect(md).toContain('https://example.com/api/data?token=[redacted]');
       expect(md).toContain('120ms');
       expect(md).toContain('4 KB');
+    });
+
+    it('formats console errors and network activity from debugSession in markdown report while excluding filtered items', () => {
+      const reportWithSession: BugReport = {
+        ...mockReport,
+        debugSession: {
+          tabId: 5,
+          status: 'stopped',
+          startedAt: '2026-10-09T22:30:00.000Z',
+          excludedEvidenceIds: ['net-excluded'],
+          consoleEvents: [
+            {
+              id: 'err-1',
+              kind: 'runtime-error',
+              message: 'Uncaught SyntaxError: Unexpected token <',
+              stack: 'SyntaxError at bundle.js:1:1',
+              timestamp: '2026-10-09T22:30:01.000Z',
+              count: 3,
+            },
+          ],
+          networkEvents: [
+            {
+              id: 'net-included',
+              url: 'https://example.com/api/users?auth=secret123',
+              initiatorType: 'fetch',
+              duration: 210,
+              timestamp: '2026-10-09T22:30:02.000Z',
+              outcome: 'observed-resource',
+              count: 1,
+            },
+            {
+              id: 'net-excluded',
+              url: 'https://example.com/hidden-telemetry',
+              initiatorType: 'fetch',
+              duration: 50,
+              timestamp: '2026-10-09T22:30:03.000Z',
+              outcome: 'observed-resource',
+              count: 1,
+            },
+          ],
+        },
+      };
+
+      const md = generateMarkdownReport(reportWithSession, 'stem-session');
+      expect(md).toContain('## Diagnostic Evidence');
+      expect(md).toContain('### Recorded Page Errors');
+      expect(md).toContain('**[runtime-error]** `Uncaught SyntaxError: Unexpected token <` (3x)');
+      expect(md).toContain('### Network & Resource Timings');
+      // Auth query param redacted by sanitizer
+      expect(md).toContain('https://example.com/api/users?auth=[redacted]');
+      expect(md).toContain('210ms');
+      expect(md).not.toContain('hidden-telemetry');
     });
   });
 

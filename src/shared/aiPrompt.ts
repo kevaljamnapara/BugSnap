@@ -40,24 +40,48 @@ export function generateAiDebugPrompt(report: BugReport, variant: 'concise' | 'd
   // 4. Runtime Evidence (Console)
   if (variant === 'detailed') {
     const consoleEvents = session?.consoleEvents || [];
+    const metaJsErrors = report.metadata?.diagnostics?.jsErrors || [];
+    const consoleItems: string[] = [];
     if (consoleEvents.length > 0) {
-      const items = consoleEvents.map((e) => {
+      consoleEvents.forEach((e) => {
         const msg = sanitizeEvidenceText(e.message);
         const stack = e.stack ? ` (Stack: ${sanitizeEvidenceText(e.stack.slice(0, 200))})` : '';
-        return `- [${e.kind}] ${msg}${stack}`;
+        consoleItems.push(`- [${e.kind}] ${msg}${stack}`);
       });
-      sections.push(`## Console Errors & Warnings\n${items.join('\n')}`);
+    }
+    if (metaJsErrors.length > 0) {
+      metaJsErrors.forEach((err) => {
+        if (!consoleEvents.some((e) => e.message.includes(err) || err.includes(e.message))) {
+          consoleItems.push(`- [error] ${sanitizeEvidenceText(err)}`);
+        }
+      });
+    }
+    if (consoleItems.length > 0) {
+      sections.push(`## Console Errors & Warnings\n${consoleItems.join('\n')}`);
     } else {
       sections.push('## Console Diagnostics\nNo runtime errors or warnings were observed in this session.');
     }
 
     // 5. Network Observations
     const networkEvents = session?.networkEvents || [];
+    const metaTimings = report.metadata?.diagnostics?.resourceTimings || [];
+    const networkItems: string[] = [];
     if (networkEvents.length > 0) {
-      const items = networkEvents.map(
-        (n) => `- [${n.initiatorType}] ${sanitizeEvidenceUrl(n.url)} (${n.duration}ms)`
-      );
-      sections.push(`## Observable Network Activity\n${items.join('\n')}`);
+      networkEvents.forEach((n) => {
+        networkItems.push(`- [${n.initiatorType}] ${sanitizeEvidenceUrl(n.url)} (${n.duration}ms)`);
+      });
+    }
+    if (metaTimings.length > 0) {
+      const existingUrls = new Set(networkEvents.map((n) => sanitizeEvidenceUrl(n.url)));
+      metaTimings.slice(0, 15).forEach((t) => {
+        const safeUrl = sanitizeEvidenceUrl(t.name);
+        if (!existingUrls.has(safeUrl)) {
+          networkItems.push(`- [${t.initiatorType}] ${safeUrl} (${t.duration}ms)`);
+        }
+      });
+    }
+    if (networkItems.length > 0) {
+      sections.push(`## Observable Network Activity\n${networkItems.join('\n')}`);
     } else {
       sections.push('## Network Diagnostics\nNo network failures or relevant requests were observed in this session.');
     }
