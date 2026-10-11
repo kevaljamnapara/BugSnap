@@ -17,9 +17,7 @@ import {
   generateFilenameStem,
   generateMarkdownReport,
   downloadBlob,
-  copyCompleteBugReport,
   deriveReportSummary,
-  CopyReportResult,
 } from './exportUtils';
 import { ReportManagement } from './ReportManagement';
 import { cropImageDataUrl } from '../shared/cropUtils';
@@ -62,13 +60,33 @@ export const Editor: React.FC = () => {
   const [exportSuccessMessage, setExportSuccessMessage] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
 
+  // Secondary Actions Dropdown Menu State
+  const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
+  const menuContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isMenuOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuContainerRef.current && !menuContainerRef.current.contains(e.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isMenuOpen]);
+
   // Copy Feedback and Error State
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
   const [copyError, setCopyError] = useState<string | null>(null);
-
-  // One-Click Copy Complete State
-  const [isCopyingComplete, setIsCopyingComplete] = useState<boolean>(false);
-  const [copyCompleteFeedback, setCopyCompleteFeedback] = useState<CopyReportResult | null>(null);
 
   // Discard Draft State
   const [showDiscardModal, setShowDiscardModal] = useState<boolean>(false);
@@ -351,49 +369,6 @@ export const Editor: React.FC = () => {
     }
   };
 
-  // Copy Complete Bug Report (One-Click) Flow
-  const handleCopyCompleteReport = async () => {
-    if (!draft) return;
-
-    setIsCopyingComplete(true);
-    setCopyError(null);
-    setCopyCompleteFeedback(null);
-
-    try {
-      const effectiveTitle = draft.title || deriveReportSummary(draft);
-      const reportToCopy: BugReport = {
-        ...draft,
-        title: effectiveTitle,
-        annotations,
-        annotatedScreenshotDataUrl,
-      };
-
-      const result = await copyCompleteBugReport(
-        reportToCopy,
-        annotatedScreenshotDataUrl || draft.screenshotDataUrl,
-      );
-
-      setCopyCompleteFeedback(result);
-      if (result.success) {
-        setCopyFeedback(result.message);
-        setTimeout(() => setCopyFeedback(null), 5000);
-      } else {
-        setCopyError(result.error || result.message);
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setCopyError(`Failed to copy complete report: ${msg}`);
-      setCopyCompleteFeedback({
-        success: false,
-        combined: false,
-        message: `Failed to copy complete report: ${msg}`,
-        error: msg,
-      });
-    } finally {
-      setIsCopyingComplete(false);
-    }
-  };
-
   // Discard Draft Flow
   const handleOpenDiscardModal = () => {
     setDiscardError(null);
@@ -471,150 +446,208 @@ export const Editor: React.FC = () => {
     <div className="editor-layout">
       {/* Header */}
       <header className="editor-header">
-        <div className="header-left">
+        {/* Left Section: Brand, Subtitle, Draft badge, truncated ID */}
+        <div className="header-section-left">
           <div className="app-brand">
             <span className="app-logo-mark" aria-hidden="true">🐞</span>
-            <h1>{APP_NAME} <span className="header-subtitle">— Report Editor</span></h1>
+            <h1>
+              {APP_NAME} <span className="header-subtitle">— Report Editor</span>
+            </h1>
           </div>
           <div className="header-badges">
             <span className="badge badge-draft">Draft</span>
-            {draftId && <span className="badge badge-id">ID: {draftId}</span>}
+            {draftId && (
+              <span
+                className="badge badge-id"
+                title={`Report ID: ${draftId}`}
+                aria-label={`Report ID: ${draftId}`}
+              >
+                ID: {draftId.length > 8 ? `${draftId.slice(0, 8)}…` : draftId}
+              </span>
+            )}
           </div>
         </div>
 
-        <div className="header-actions">
-          {/* Status & Appearance Cluster */}
-          <div className="header-cluster header-cluster-system">
-            <ThemeSwitcher />
-            {draft && !isDiscarded && viewMode === 'editor' && (
-              <div className="save-status-container" data-testid="save-status">
-                <span className={`status-dot status-dot-${saveStatus}`} />
-                <span className={`status-text ${saveStatus === 'error' ? 'status-text-error' : ''}`}>
-                  {saveStatus === 'saving' && 'Saving...'}
-                  {saveStatus === 'saved' && 'Saved locally'}
-                  {saveStatus === 'error' && 'Save failed'}
-                </span>
-              </div>
-            )}
-          </div>
+        {/* Center Section: Save status, Theme switcher, Manage Reports & Settings, Context toggle */}
+        <div className="header-section-center">
+          {draft && !isDiscarded && viewMode === 'editor' && (
+            <div className="save-status-container header-status-pill" data-testid="save-status">
+              <span className={`status-dot status-dot-${saveStatus}`} />
+              <span className={`status-text ${saveStatus === 'error' ? 'status-text-error' : ''}`}>
+                {saveStatus === 'saving' && 'Saving...'}
+                {saveStatus === 'saved' && 'Saved locally'}
+                {saveStatus === 'error' && 'Save failed'}
+              </span>
+            </div>
+          )}
 
           <div className="header-divider" aria-hidden="true" />
 
-          {/* Secondary Actions Cluster */}
-          <div className="header-cluster header-cluster-secondary">
-            {/* Manage Reports & Settings Toggle */}
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={() => setViewMode(viewMode === 'editor' ? 'management' : 'editor')}
-              data-testid="manage-reports-btn"
-            >
-              {viewMode === 'editor' ? 'Manage Reports & Settings' : '← Back to Editor'}
-            </button>
+          <ThemeSwitcher className="header-pill-btn" />
 
-            {/* Quick Secondary Export Actions */}
-            {draft && !isDiscarded && viewMode === 'editor' && (
-              <>
+          <div className="header-divider" aria-hidden="true" />
+
+          <button
+            type="button"
+            className="btn header-pill-btn"
+            onClick={() => setViewMode(viewMode === 'editor' ? 'management' : 'editor')}
+            data-testid="manage-reports-btn"
+          >
+            <span aria-hidden="true">{viewMode === 'editor' ? '⚙' : '←'}</span>
+            <span>{viewMode === 'editor' ? 'Manage Reports & Settings' : '← Back to Editor'}</span>
+          </button>
+
+          {draft && !isDiscarded && viewMode === 'editor' && (
+            <>
+              <div className="header-divider" aria-hidden="true" />
+              <button
+                type="button"
+                className={`btn header-pill-btn ${showSidePanel ? 'header-pill-active' : ''}`}
+                onClick={() => setShowSidePanel(!showSidePanel)}
+                data-testid="toggle-diagnostics-btn"
+                title={showSidePanel ? 'Hide Page Context sidebar' : 'Show Page Context sidebar'}
+                aria-label="Toggle Page Context sidebar"
+              >
+                <span aria-hidden="true">ℹ️</span>
+                <span>Context</span>
+              </button>
+            </>
+          )}
+        </div>
+
+        {/* Right Section: Split Primary Button + Dropdown, Divider, Discard Draft */}
+        <div className="header-section-right">
+          {draft && !isDiscarded && viewMode === 'editor' && (
+            <>
+              {/* Separate 3 Copy Buttons */}
+              <div className="header-copy-actions" role="group" aria-label="Copy actions">
                 <button
                   type="button"
-                  className="btn btn-secondary btn-sm"
-                  onClick={handleExportZip}
-                  disabled={isExporting}
-                  data-testid="export-zip-btn"
-                  title="Download portable ZIP bundle with report and diagnostics"
-                >
-                  Export ZIP
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-sm"
-                  onClick={handleCopyReport}
-                  data-testid="copy-report-btn"
-                  title="Copy Markdown bug report to clipboard"
-                >
-                  Copy Report
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-sm"
+                  className="btn header-pill-btn"
                   onClick={handleCopyScreenshot}
                   data-testid="copy-screenshot-btn"
                   title="Copy screenshot image to clipboard"
                 >
-                  Copy Image
+                  <span aria-hidden="true">🖼️</span>
+                  <span>Copy Image</span>
                 </button>
+
                 <button
                   type="button"
-                  className="btn btn-ghost btn-sm"
+                  className="btn header-pill-btn btn-primary"
+                  onClick={handleCopyReport}
+                  data-testid="copy-report-btn"
+                  title="Copy Markdown bug report to clipboard"
+                >
+                  <span aria-hidden="true">📝</span>
+                  <span>Copy Report</span>
+                </button>
+
+                <button
+                  type="button"
+                  className="btn header-pill-btn"
                   onClick={handleCopyAiPrompt}
                   data-testid="copy-ai-prompt-btn"
                   title="Copy AI debugging prompt to clipboard"
                 >
-                  AI Prompt
+                  <span aria-hidden="true">🤖</span>
+                  <span>Copy Prompt</span>
                 </button>
+              </div>
+
+              <div className="header-divider" aria-hidden="true" />
+
+              {/* Export Menu */}
+              <div className="split-action-container" ref={menuContainerRef}>
                 <button
                   type="button"
-                  className="btn btn-ghost btn-sm"
-                  onClick={handleExport}
-                  disabled={isExporting}
-                  data-testid="export-report-btn"
-                  title="Download Markdown report and screenshot evidence"
+                  className={`btn header-pill-btn ${isMenuOpen ? 'header-pill-active' : ''}`}
+                  onClick={() => setIsMenuOpen((prev) => !prev)}
+                  aria-label="Export options"
+                  aria-haspopup="menu"
+                  aria-expanded={isMenuOpen}
+                  data-testid="more-actions-btn"
+                  title="Export options"
                 >
-                  Export Report
+                  <span aria-hidden="true">📦</span>
+                  <span>Export</span>
+                  <span className="chevron-icon" aria-hidden="true">▾</span>
                 </button>
-              </>
-            )}
 
-            {draft?.debugSession?.status === 'active' && viewMode === 'editor' && (
+                {/* Secondary Actions Dropdown Menu */}
+                <div
+                  className={`header-dropdown-menu ${isMenuOpen ? 'menu-open' : ''}`}
+                  role="menu"
+                  aria-label="Export options"
+                  data-testid="more-actions-menu"
+                >
+                  <button
+                    type="button"
+                    className="dropdown-menu-item"
+                    role="menuitem"
+                    onClick={() => {
+                      setIsMenuOpen(false);
+                      handleExport();
+                    }}
+                    disabled={isExporting}
+                    data-testid="export-report-btn"
+                    title="Download Markdown report and screenshot evidence"
+                  >
+                    <span className="menu-item-icon" aria-hidden="true">📄</span>
+                    <span>Export Report</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="dropdown-menu-item"
+                    role="menuitem"
+                    onClick={() => {
+                      setIsMenuOpen(false);
+                      handleExportZip();
+                    }}
+                    disabled={isExporting}
+                    data-testid="export-zip-btn"
+                    title="Download portable ZIP bundle with report and diagnostics"
+                  >
+                    <span className="menu-item-icon" aria-hidden="true">📦</span>
+                    <span>Export ZIP</span>
+                  </button>
+
+                  {draft?.debugSession?.status === 'active' && (
+                    <>
+                      <div className="dropdown-divider" role="separator" />
+                      <button
+                        type="button"
+                        className="dropdown-menu-item dropdown-item-warning"
+                        role="menuitem"
+                        onClick={() => {
+                          setIsMenuOpen(false);
+                          handleStopDebugSession();
+                        }}
+                        data-testid="stop-debug-session-btn"
+                      >
+                        <span className="menu-item-icon" aria-hidden="true">🛑</span>
+                        <span>Stop Error Session</span>
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <div className="header-divider" aria-hidden="true" />
+
+              {/* Discard Draft Button */}
               <button
                 type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={handleStopDebugSession}
-                data-testid="stop-debug-session-btn"
-              >
-                Stop Error Session
-              </button>
-            )}
-
-            {/* Discard Draft Button */}
-            {draft && !isDiscarded && viewMode === 'editor' && (
-              <button
-                type="button"
-                className="btn btn-danger-outline btn-sm"
+                className="btn header-pill-btn btn-danger-pill"
                 onClick={handleOpenDiscardModal}
                 data-testid="discard-draft-btn"
+                title="Discard this bug report draft"
               >
-                Discard Draft
+                <span aria-hidden="true">🗑</span>
+                <span>Discard Draft</span>
               </button>
-            )}
-          </div>
-
-          <div className="header-divider" aria-hidden="true" />
-
-          {/* Primary One-Click Action Button */}
-          {draft && !isDiscarded && viewMode === 'editor' && (
-            <div className="header-cluster header-cluster-primary">
-              <button
-                type="button"
-                className="btn btn-primary btn-sm btn-prominent btn-hero-copy"
-                onClick={handleCopyCompleteReport}
-                disabled={isCopyingComplete}
-                data-testid="copy-complete-report-btn"
-                title="Copy screenshot, complete bug report, and AI prompt to clipboard"
-              >
-                {isCopyingComplete ? (
-                  <>
-                    <span className="spinner-sm" aria-hidden="true" />
-                    <span>Copying...</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="hero-btn-icon" aria-hidden="true">📋</span>
-                    <span>Copy Complete Bug Report</span>
-                  </>
-                )}
-              </button>
-            </div>
+            </>
           )}
         </div>
       </header>
@@ -769,103 +802,6 @@ export const Editor: React.FC = () => {
         <>
           {draft && !isDiscarded && (
             <>
-              {/* Minimal Evidence Sub-bar with Summary and Diagnostic Chips */}
-              <div className="editor-subbar" data-testid="one-click-action-card">
-                <div className="subbar-summary">
-                  <span className="subbar-label">Summary:</span>
-                  <strong className="subbar-title" data-testid="derived-summary-preview">
-                    {(draft.title && draft.title.trim()) || deriveReportSummary(draft)}
-                  </strong>
-                </div>
-
-                <div className="evidence-summary-bar" data-testid="evidence-summary-bar">
-                  <div className="evidence-summary-title">Evidence:</div>
-                  <div className="evidence-chips-list">
-                    <div
-                      className={`evidence-chip ${draft.screenshotDataUrl ? 'chip-ready' : 'chip-missing'}`}
-                      data-testid="chip-screenshot"
-                    >
-                      <span className="chip-icon">📸</span>
-                      <span>Screenshot: {draft.screenshotDataUrl ? 'Ready' : 'Unavailable'}</span>
-                      {annotations.length > 0 && (
-                        <span className="chip-subtag">({annotations.length} annotated)</span>
-                      )}
-                    </div>
-
-                    <div
-                      className={`evidence-chip ${draft.debugSession ? 'chip-ready' : 'chip-neutral'}`}
-                      data-testid="chip-console"
-                    >
-                      <span className="chip-icon">📟</span>
-                      <span>
-                        Console:{' '}
-                        {draft.debugSession
-                          ? `${draft.debugSession.consoleEvents.length} event${draft.debugSession.consoleEvents.length === 1 ? '' : 's'}`
-                          : 'Not active'}
-                      </span>
-                    </div>
-
-                    <div
-                      className={`evidence-chip ${draft.debugSession ? 'chip-ready' : 'chip-neutral'}`}
-                      data-testid="chip-network"
-                    >
-                      <span className="chip-icon">🌐</span>
-                      <span>
-                        Network:{' '}
-                        {draft.debugSession
-                          ? `${draft.debugSession.networkEvents?.length || 0} timing${(draft.debugSession.networkEvents?.length || 0) === 1 ? '' : 's'}`
-                          : 'Not active'}
-                      </span>
-                    </div>
-
-                    <div className="evidence-chip chip-ready" data-testid="chip-environment">
-                      <span className="chip-icon">🖥️</span>
-                      <span>Environment: {draft.metadata?.platform || 'Detected'}</span>
-                    </div>
-
-                    <div className="evidence-chip chip-privacy" data-testid="chip-privacy">
-                      <span className="chip-icon">🔒</span>
-                      <span>Privacy: Offline (₹0)</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="subbar-actions">
-                  <button
-                    type="button"
-                    className={`btn btn-sm ${showSidePanel ? 'btn-secondary-active' : 'btn-secondary'}`}
-                    onClick={() => setShowSidePanel(!showSidePanel)}
-                    data-testid="toggle-diagnostics-btn"
-                    title="Toggle Page Context & Diagnostics panel"
-                  >
-                    <span>{showSidePanel ? 'Hide Context ✕' : 'ℹ️ Page Context & Diagnostics'}</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Real-time Copy Complete Feedback */}
-              {copyCompleteFeedback && (
-                <div
-                  className={`one-click-feedback ${copyCompleteFeedback.success ? 'feedback-success' : 'feedback-error'}`}
-                  data-testid="copy-complete-feedback"
-                  role="status"
-                >
-                  <div className="feedback-content">
-                    <span className="feedback-icon">{copyCompleteFeedback.success ? '✅' : '⚠️'}</span>
-                    <div className="feedback-text-block">
-                      <strong>
-                        {copyCompleteFeedback.success
-                          ? copyCompleteFeedback.combined
-                            ? 'Copied Successfully!'
-                            : 'Report and AI prompt copied; screenshot saved separately.'
-                          : 'Copy Failed'}
-                      </strong>
-                      <p className="feedback-message">{copyCompleteFeedback.message}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
               {/* Full-Screen Workspace Body */}
               <div className="editor-main-body">
                 {/* Visual Evidence Full-Screen Canvas */}
@@ -896,8 +832,24 @@ export const Editor: React.FC = () => {
                   <div className="sidebar-section">
                     <div className="sidebar-header">
                       <h3>Page Context</h3>
+                      <button
+                        type="button"
+                        className="sidebar-close-btn"
+                        onClick={() => setShowSidePanel(false)}
+                        title="Close Page Context"
+                        aria-label="Close Page Context"
+                      >
+                        ✕
+                      </button>
                     </div>
                     <div className="metadata-grid">
+                      <div className="metadata-item">
+                        <span className="metadata-label">Report Summary</span>
+                        <strong className="metadata-value metadata-summary" data-testid="derived-summary-preview">
+                          {(draft.title && draft.title.trim()) || deriveReportSummary(draft)}
+                        </strong>
+                      </div>
+
                       <div className="metadata-item">
                         <span className="metadata-label">Page Title</span>
                         <span className="metadata-value" data-testid="meta-title">

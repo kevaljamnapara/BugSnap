@@ -2,6 +2,7 @@ import { BugReport } from '../shared/types';
 import { sanitizeEvidenceText, sanitizeEvidenceUrl } from '../shared/evidenceSanitizer';
 import { buildEnvironmentDiagnostics } from '../shared/environmentDiagnostics';
 import { generateAiDebugPrompt } from '../shared/aiPrompt';
+import { reviewedSession } from '../shared/evidenceReview';
 
 function escapeHtml(text: string): string {
   return text
@@ -609,27 +610,65 @@ export function generateMarkdownReport(report: BugReport, filenameStem: string):
   const screenshotFilename = `${filenameStem}-screenshot.png`;
 
   let diagnosticsSection = '';
-  if (report.metadata.diagnostics) {
-    const { resourceTimings, jsErrors } = report.metadata.diagnostics;
-    const items: string[] = [];
-    if (jsErrors && jsErrors.length > 0) {
-      items.push(`### Recorded Page Errors\n` + jsErrors.map((e) => `- \`${escapeMarkdownTableCell(e)}\``).join('\n'));
-    }
-    if (resourceTimings && resourceTimings.length > 0) {
-      const timingRows = resourceTimings.slice(0, 15).map(
-        (t) =>
-          `| \`${escapeMarkdownTableCell(t.name)}\` | ${escapeMarkdownTableCell(t.initiatorType)} | ${t.duration}ms | ${t.transferSize !== undefined ? `${Math.round(t.transferSize / 1024)} KB` : 'Cached/N/A'} |`,
+  const diagItems: string[] = [];
+
+  const session = report.debugSession ? reviewedSession(report.debugSession) : undefined;
+  const activeConsoleEvents = session?.consoleEvents || [];
+  const jsErrors = report.metadata?.diagnostics?.jsErrors || [];
+
+  const errorRows: string[] = [];
+  if (activeConsoleEvents.length > 0) {
+    activeConsoleEvents.forEach((e) => {
+      const cleanMsg = sanitizeEvidenceText(e.message);
+      const stack = e.stack ? ` (Stack: \`${escapeMarkdownTableCell(e.stack.slice(0, 200))}\`)` : '';
+      errorRows.push(`- **[${e.kind}]** \`${cleanMsg}\`${e.count > 1 ? ` (${e.count}x)` : ''}${stack}`);
+    });
+  }
+  if (jsErrors.length > 0) {
+    jsErrors.forEach((err) => {
+      if (!activeConsoleEvents.some((e) => e.message.includes(err) || err.includes(e.message))) {
+        errorRows.push(`- \`${escapeMarkdownTableCell(sanitizeEvidenceText(err))}\``);
+      }
+    });
+  }
+  if (errorRows.length > 0) {
+    diagItems.push(`### Recorded Page Errors\n` + errorRows.join('\n'));
+  }
+
+  const activeNetworkEvents = session?.networkEvents || [];
+  const resourceTimings = report.metadata?.diagnostics?.resourceTimings || [];
+
+  const timingRows: string[] = [];
+  if (activeNetworkEvents.length > 0) {
+    activeNetworkEvents.slice(0, 20).forEach((n) => {
+      timingRows.push(
+        `| \`${escapeMarkdownTableCell(sanitizeEvidenceUrl(n.url))}\` | ${escapeMarkdownTableCell(n.initiatorType)} | ${n.duration}ms | Observed |`,
       );
-      items.push(
-        `### Network & Resource Timings\n` +
-          `| Resource URL | Initiator | Duration | Size |\n` +
-          `| :--- | :--- | :--- | :--- |\n` +
-          timingRows.join('\n'),
-      );
-    }
-    if (items.length > 0) {
-      diagnosticsSection = `\n## Diagnostic Evidence\n${items.join('\n\n')}\n`;
-    }
+    });
+  }
+  if (resourceTimings.length > 0) {
+    const existingUrls = new Set(activeNetworkEvents.map((n) => sanitizeEvidenceUrl(n.url)));
+    resourceTimings.slice(0, 15).forEach((t) => {
+      const safeUrl = sanitizeEvidenceUrl(t.name);
+      if (!existingUrls.has(safeUrl)) {
+        const size = t.transferSize !== undefined ? `${Math.round(t.transferSize / 1024)} KB` : 'Cached/N/A';
+        timingRows.push(
+          `| \`${escapeMarkdownTableCell(safeUrl)}\` | ${escapeMarkdownTableCell(t.initiatorType)} | ${t.duration}ms | ${size} |`,
+        );
+      }
+    });
+  }
+  if (timingRows.length > 0) {
+    diagItems.push(
+      `### Network & Resource Timings\n` +
+        `| Resource URL | Initiator | Duration | Status / Size |\n` +
+        `| :--- | :--- | :--- | :--- |\n` +
+        timingRows.join('\n'),
+    );
+  }
+
+  if (diagItems.length > 0) {
+    diagnosticsSection = `\n## Diagnostic Evidence\n${diagItems.join('\n\n')}\n`;
   }
 
   return `# [BugSnap] ${title}
