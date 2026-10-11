@@ -304,19 +304,15 @@ describe('One-Click Bug Report & Evidence Capture Suite', () => {
 
     render(<Editor />);
 
-    // Wait for the One-Click Action Card to appear
+    // Wait for the primary action button to appear
     await waitFor(() => {
-      expect(screen.getByTestId('one-click-action-card')).toBeInTheDocument();
       expect(screen.getByTestId('copy-complete-report-btn')).toBeInTheDocument();
     });
 
-    // Evidence readiness chips are visible
-    expect(screen.getByTestId('evidence-summary-bar')).toBeInTheDocument();
-    expect(screen.getByTestId('chip-screenshot')).toHaveTextContent(/Screenshot: Ready/i);
-    expect(screen.getByTestId('chip-console')).toHaveTextContent(/Console: 1 event/i);
-    expect(screen.getByTestId('chip-network')).toHaveTextContent(/Network: 1 timing/i);
-    expect(screen.getByTestId('chip-environment')).toHaveTextContent(/Environment:/i);
-    expect(screen.getByTestId('chip-privacy')).toHaveTextContent(/Privacy:/i);
+    // The redundant summary/evidence bar is completely removed from the rendered UI
+    expect(screen.queryByTestId('evidence-summary-bar')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('one-click-action-card')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('chip-screenshot')).not.toBeInTheDocument();
 
     // Derived summary preview is automatically populated without manual user typing
     const summaryPreview = screen.getByTestId('derived-summary-preview');

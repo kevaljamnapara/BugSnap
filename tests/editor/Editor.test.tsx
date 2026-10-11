@@ -511,4 +511,85 @@ describe('Editor Component — Phase 3 Features', () => {
       });
     });
   });
+
+  describe('Minimal Header Redesign & Redundant Bar Removal', () => {
+    it('renders the compact Apple-inspired toolbar and removes the redundant evidence subbar', async () => {
+      await storage.saveReport(mockDraft);
+      window.history.pushState({}, '', `/editor.html?id=${mockDraft.id}`);
+
+      render(<Editor />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('copy-complete-report-btn')).toBeInTheDocument();
+      });
+
+      // Redundant evidence bar is completely removed
+      expect(screen.queryByTestId('evidence-summary-bar')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('one-click-action-card')).not.toBeInTheDocument();
+
+      // Report Summary is available in the Page Context sidebar
+      expect(screen.getByTestId('derived-summary-preview')).toHaveTextContent('Initial Bug Title');
+
+      // Theme switcher and save status are present
+      expect(screen.getByTestId('save-status')).toBeInTheDocument();
+      expect(screen.getByTestId('theme-switcher-btn')).toBeInTheDocument();
+      expect(screen.getByTestId('manage-reports-btn')).toBeInTheDocument();
+    });
+
+    it('toggles the secondary actions dropdown menu on click and closes on Escape', async () => {
+      await storage.saveReport(mockDraft);
+      window.history.pushState({}, '', `/editor.html?id=${mockDraft.id}`);
+
+      render(<Editor />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('more-actions-btn')).toBeInTheDocument();
+      });
+
+      const moreBtn = screen.getByTestId('more-actions-btn');
+      const menu = screen.getByTestId('more-actions-menu');
+
+      expect(moreBtn).toHaveAttribute('aria-expanded', 'false');
+      expect(menu).not.toHaveClass('menu-open');
+
+      // Click to open
+      fireEvent.click(moreBtn);
+      expect(moreBtn).toHaveAttribute('aria-expanded', 'true');
+      expect(menu).toHaveClass('menu-open');
+
+      // Secondary export & copy actions are accessible
+      expect(screen.getByTestId('export-report-btn')).toBeInTheDocument();
+      expect(screen.getByTestId('export-zip-btn')).toBeInTheDocument();
+      expect(screen.getByTestId('copy-report-btn')).toBeInTheDocument();
+      expect(screen.getByTestId('copy-screenshot-btn')).toBeInTheDocument();
+      expect(screen.getByTestId('copy-ai-prompt-btn')).toBeInTheDocument();
+
+      // Press Escape to close
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(moreBtn).toHaveAttribute('aria-expanded', 'false');
+      expect(menu).not.toHaveClass('menu-open');
+    });
+
+    it('toggles the Page Context sidebar using the header context button', async () => {
+      await storage.saveReport(mockDraft);
+      window.history.pushState({}, '', `/editor.html?id=${mockDraft.id}`);
+
+      render(<Editor />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('toggle-diagnostics-btn')).toBeInTheDocument();
+      });
+
+      const sidebar = screen.getByTestId('metadata-card');
+      expect(sidebar).toHaveClass('sidebar-open');
+
+      // Click toggle to collapse
+      fireEvent.click(screen.getByTestId('toggle-diagnostics-btn'));
+      expect(sidebar).toHaveClass('sidebar-collapsed');
+
+      // Click toggle to re-open
+      fireEvent.click(screen.getByTestId('toggle-diagnostics-btn'));
+      expect(sidebar).toHaveClass('sidebar-open');
+    });
+  });
 });
