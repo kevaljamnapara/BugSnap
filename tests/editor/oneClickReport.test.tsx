@@ -304,9 +304,11 @@ describe('One-Click Bug Report & Evidence Capture Suite', () => {
 
     render(<Editor />);
 
-    // Wait for the primary action button to appear
+    // Wait for the separate copy action buttons to appear
     await waitFor(() => {
-      expect(screen.getByTestId('copy-complete-report-btn')).toBeInTheDocument();
+      expect(screen.getByTestId('copy-report-btn')).toBeInTheDocument();
+      expect(screen.getByTestId('copy-screenshot-btn')).toBeInTheDocument();
+      expect(screen.getByTestId('copy-ai-prompt-btn')).toBeInTheDocument();
     });
 
     // The redundant summary/evidence bar is completely removed from the rendered UI
@@ -318,13 +320,13 @@ describe('One-Click Bug Report & Evidence Capture Suite', () => {
     const summaryPreview = screen.getByTestId('derived-summary-preview');
     expect(summaryPreview).toHaveTextContent(/Cannot read properties of undefined/i);
 
-    // User can click Copy Complete Bug Report with ZERO manual fields entered!
-    const copyButton = screen.getByTestId('copy-complete-report-btn');
+    // User can click Copy Report with ZERO manual fields entered!
+    const copyButton = screen.getByTestId('copy-report-btn');
     fireEvent.click(copyButton);
 
-    // Feedback appears confirming one-click completion
+    // Feedback appears confirming completion
     await waitFor(() => {
-      expect(screen.getByTestId('copy-complete-feedback')).toBeInTheDocument();
+      expect(screen.getByTestId('copy-feedback-alert')).toBeInTheDocument();
     });
 
     // Manual form elements are completely removed from the UI for the one-click workflow

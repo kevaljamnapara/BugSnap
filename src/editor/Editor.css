@@ -167,7 +167,7 @@
   color: var(--bs-accent) !important;
 }
 
-/* ─── Right Section: Primary Split Pill & Actions ─── */
+/* ─── Right Section: 3 Copy Actions & Actions ─── */
 .header-section-right {
   display: flex;
   align-items: center;
@@ -175,6 +175,25 @@
   flex-wrap: nowrap;
   flex-shrink: 0;
   margin-left: auto;
+}
+
+.header-copy-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.header-copy-actions .btn-primary {
+  background-color: var(--bs-accent) !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  box-shadow: 0 1px 3px rgba(0, 113, 227, 0.3) !important;
+  font-weight: 600 !important;
+}
+
+.header-copy-actions .btn-primary:hover:not(:disabled) {
+  background-color: var(--bs-accent-hover) !important;
 }
 
 .split-action-container {

@@ -17,9 +17,7 @@ import {
   generateFilenameStem,
   generateMarkdownReport,
   downloadBlob,
-  copyCompleteBugReport,
   deriveReportSummary,
-  CopyReportResult,
 } from './exportUtils';
 import { ReportManagement } from './ReportManagement';
 import { cropImageDataUrl } from '../shared/cropUtils';
@@ -89,10 +87,6 @@ export const Editor: React.FC = () => {
   // Copy Feedback and Error State
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
   const [copyError, setCopyError] = useState<string | null>(null);
-
-  // One-Click Copy Complete State
-  const [isCopyingComplete, setIsCopyingComplete] = useState<boolean>(false);
-  const [copyCompleteFeedback, setCopyCompleteFeedback] = useState<CopyReportResult | null>(null);
 
   // Discard Draft State
   const [showDiscardModal, setShowDiscardModal] = useState<boolean>(false);
@@ -375,49 +369,6 @@ export const Editor: React.FC = () => {
     }
   };
 
-  // Copy Complete Bug Report (One-Click) Flow
-  const handleCopyCompleteReport = async () => {
-    if (!draft) return;
-
-    setIsCopyingComplete(true);
-    setCopyError(null);
-    setCopyCompleteFeedback(null);
-
-    try {
-      const effectiveTitle = draft.title || deriveReportSummary(draft);
-      const reportToCopy: BugReport = {
-        ...draft,
-        title: effectiveTitle,
-        annotations,
-        annotatedScreenshotDataUrl,
-      };
-
-      const result = await copyCompleteBugReport(
-        reportToCopy,
-        annotatedScreenshotDataUrl || draft.screenshotDataUrl,
-      );
-
-      setCopyCompleteFeedback(result);
-      if (result.success) {
-        setCopyFeedback(result.message);
-        setTimeout(() => setCopyFeedback(null), 5000);
-      } else {
-        setCopyError(result.error || result.message);
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setCopyError(`Failed to copy complete report: ${msg}`);
-      setCopyCompleteFeedback({
-        success: false,
-        combined: false,
-        message: `Failed to copy complete report: ${msg}`,
-        error: msg,
-      });
-    } finally {
-      setIsCopyingComplete(false);
-    }
-  };
-
   // Discard Draft Flow
   const handleOpenDiscardModal = () => {
     setDiscardError(null);
@@ -568,49 +519,66 @@ export const Editor: React.FC = () => {
         <div className="header-section-right">
           {draft && !isDiscarded && viewMode === 'editor' && (
             <>
-              {/* Primary Copy Complete + Split Dropdown Menu */}
-              <div className="split-action-container" ref={menuContainerRef}>
-                <div className="btn-split-group">
-                  <button
-                    type="button"
-                    className="btn btn-primary btn-hero-copy"
-                    onClick={handleCopyCompleteReport}
-                    disabled={isCopyingComplete}
-                    data-testid="copy-complete-report-btn"
-                    title="Copy screenshot, complete bug report, and AI prompt to clipboard"
-                  >
-                    {isCopyingComplete ? (
-                      <>
-                        <span className="spinner-sm" aria-hidden="true" />
-                        <span>Copying...</span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="hero-btn-icon" aria-hidden="true">📋</span>
-                        <span>Copy Complete Bug Report</span>
-                      </>
-                    )}
-                  </button>
+              {/* Separate 3 Copy Buttons */}
+              <div className="header-copy-actions" role="group" aria-label="Copy actions">
+                <button
+                  type="button"
+                  className="btn header-pill-btn"
+                  onClick={handleCopyScreenshot}
+                  data-testid="copy-screenshot-btn"
+                  title="Copy screenshot image to clipboard"
+                >
+                  <span aria-hidden="true">🖼️</span>
+                  <span>Copy Image</span>
+                </button>
 
-                  <button
-                    type="button"
-                    className={`btn btn-primary btn-dropdown-trigger ${isMenuOpen ? 'trigger-active' : ''}`}
-                    onClick={() => setIsMenuOpen((prev) => !prev)}
-                    aria-label="More export and copy options"
-                    aria-haspopup="menu"
-                    aria-expanded={isMenuOpen}
-                    data-testid="more-actions-btn"
-                    title="More export and copy options"
-                  >
-                    <span className="chevron-icon" aria-hidden="true">▾</span>
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  className="btn header-pill-btn btn-primary"
+                  onClick={handleCopyReport}
+                  data-testid="copy-report-btn"
+                  title="Copy Markdown bug report to clipboard"
+                >
+                  <span aria-hidden="true">📝</span>
+                  <span>Copy Report</span>
+                </button>
+
+                <button
+                  type="button"
+                  className="btn header-pill-btn"
+                  onClick={handleCopyAiPrompt}
+                  data-testid="copy-ai-prompt-btn"
+                  title="Copy AI debugging prompt to clipboard"
+                >
+                  <span aria-hidden="true">🤖</span>
+                  <span>Copy Prompt</span>
+                </button>
+              </div>
+
+              <div className="header-divider" aria-hidden="true" />
+
+              {/* Export Menu */}
+              <div className="split-action-container" ref={menuContainerRef}>
+                <button
+                  type="button"
+                  className={`btn header-pill-btn ${isMenuOpen ? 'header-pill-active' : ''}`}
+                  onClick={() => setIsMenuOpen((prev) => !prev)}
+                  aria-label="Export options"
+                  aria-haspopup="menu"
+                  aria-expanded={isMenuOpen}
+                  data-testid="more-actions-btn"
+                  title="Export options"
+                >
+                  <span aria-hidden="true">📦</span>
+                  <span>Export</span>
+                  <span className="chevron-icon" aria-hidden="true">▾</span>
+                </button>
 
                 {/* Secondary Actions Dropdown Menu */}
                 <div
                   className={`header-dropdown-menu ${isMenuOpen ? 'menu-open' : ''}`}
                   role="menu"
-                  aria-label="Export and copy options"
+                  aria-label="Export options"
                   data-testid="more-actions-menu"
                 >
                   <button
@@ -643,53 +611,6 @@ export const Editor: React.FC = () => {
                   >
                     <span className="menu-item-icon" aria-hidden="true">📦</span>
                     <span>Export ZIP</span>
-                  </button>
-
-                  <div className="dropdown-divider" role="separator" />
-
-                  <button
-                    type="button"
-                    className="dropdown-menu-item"
-                    role="menuitem"
-                    onClick={() => {
-                      setIsMenuOpen(false);
-                      handleCopyReport();
-                    }}
-                    data-testid="copy-report-btn"
-                    title="Copy Markdown bug report to clipboard"
-                  >
-                    <span className="menu-item-icon" aria-hidden="true">📝</span>
-                    <span>Copy Report</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    className="dropdown-menu-item"
-                    role="menuitem"
-                    onClick={() => {
-                      setIsMenuOpen(false);
-                      handleCopyScreenshot();
-                    }}
-                    data-testid="copy-screenshot-btn"
-                    title="Copy screenshot image to clipboard"
-                  >
-                    <span className="menu-item-icon" aria-hidden="true">🖼️</span>
-                    <span>Copy Image</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    className="dropdown-menu-item"
-                    role="menuitem"
-                    onClick={() => {
-                      setIsMenuOpen(false);
-                      handleCopyAiPrompt();
-                    }}
-                    data-testid="copy-ai-prompt-btn"
-                    title="Copy AI debugging prompt to clipboard"
-                  >
-                    <span className="menu-item-icon" aria-hidden="true">🤖</span>
-                    <span>AI Prompt</span>
                   </button>
 
                   {draft?.debugSession?.status === 'active' && (
@@ -881,29 +802,6 @@ export const Editor: React.FC = () => {
         <>
           {draft && !isDiscarded && (
             <>
-              {/* Real-time Copy Complete Feedback */}
-              {copyCompleteFeedback && (
-                <div
-                  className={`one-click-feedback ${copyCompleteFeedback.success ? 'feedback-success' : 'feedback-error'}`}
-                  data-testid="copy-complete-feedback"
-                  role="status"
-                >
-                  <div className="feedback-content">
-                    <span className="feedback-icon">{copyCompleteFeedback.success ? '✅' : '⚠️'}</span>
-                    <div className="feedback-text-block">
-                      <strong>
-                        {copyCompleteFeedback.success
-                          ? copyCompleteFeedback.combined
-                            ? 'Copied Successfully!'
-                            : 'Report and AI prompt copied; screenshot saved separately.'
-                          : 'Copy Failed'}
-                      </strong>
-                      <p className="feedback-message">{copyCompleteFeedback.message}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
               {/* Full-Screen Workspace Body */}
               <div className="editor-main-body">
                 {/* Visual Evidence Full-Screen Canvas */}

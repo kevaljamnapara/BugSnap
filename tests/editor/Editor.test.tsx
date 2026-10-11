@@ -520,7 +520,9 @@ describe('Editor Component — Phase 3 Features', () => {
       render(<Editor />);
 
       await waitFor(() => {
-        expect(screen.getByTestId('copy-complete-report-btn')).toBeInTheDocument();
+        expect(screen.getByTestId('copy-report-btn')).toBeInTheDocument();
+        expect(screen.getByTestId('copy-screenshot-btn')).toBeInTheDocument();
+        expect(screen.getByTestId('copy-ai-prompt-btn')).toBeInTheDocument();
       });
 
       // Redundant evidence bar is completely removed
@@ -536,7 +538,7 @@ describe('Editor Component — Phase 3 Features', () => {
       expect(screen.getByTestId('manage-reports-btn')).toBeInTheDocument();
     });
 
-    it('toggles the secondary actions dropdown menu on click and closes on Escape', async () => {
+    it('toggles the export dropdown menu on click and closes on Escape', async () => {
       await storage.saveReport(mockDraft);
       window.history.pushState({}, '', `/editor.html?id=${mockDraft.id}`);
 
@@ -557,9 +559,11 @@ describe('Editor Component — Phase 3 Features', () => {
       expect(moreBtn).toHaveAttribute('aria-expanded', 'true');
       expect(menu).toHaveClass('menu-open');
 
-      // Secondary export & copy actions are accessible
+      // Export actions are accessible inside the dropdown
       expect(screen.getByTestId('export-report-btn')).toBeInTheDocument();
       expect(screen.getByTestId('export-zip-btn')).toBeInTheDocument();
+
+      // Dedicated copy buttons are directly in the toolbar
       expect(screen.getByTestId('copy-report-btn')).toBeInTheDocument();
       expect(screen.getByTestId('copy-screenshot-btn')).toBeInTheDocument();
       expect(screen.getByTestId('copy-ai-prompt-btn')).toBeInTheDocument();
