@@ -122,10 +122,10 @@ export function deriveReportSummary(report: BugReport): string {
     }
   }
 
-  // 4. Derive from page title
+  // 4. Derive from page title (evidence-based, non-assertive)
   if (report.metadata?.title && report.metadata.title.trim()) {
     const cleanTitle = sanitizeEvidenceText(report.metadata.title).replace(/\s+/g, ' ').trim();
-    return `Issue on: ${cleanTitle.slice(0, 50)}`;
+    return cleanTitle.slice(0, 50);
   }
 
   // 5. Derive from URL hostname
@@ -134,7 +134,7 @@ export function deriveReportSummary(report: BugReport): string {
       const parsed = new URL(report.metadata.url);
       if (parsed.hostname && parsed.hostname !== 'localhost') {
         const pathPart = parsed.pathname !== '/' ? parsed.pathname.slice(0, 24) : '';
-        return `Issue on ${parsed.hostname}${pathPart}`;
+        return `${parsed.hostname}${pathPart}`;
       }
     } catch {
       // ignore
@@ -142,7 +142,7 @@ export function deriveReportSummary(report: BugReport): string {
   }
 
   // 6. Neutral default
-  return 'Captured browser issue';
+  return 'Captured page';
 }
 
 export interface CompleteBugReportResult {
