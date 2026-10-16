@@ -71,26 +71,49 @@ export interface DiagnosticEvidence {
   jsErrors?: string[];
 }
 
-export type ConsoleEventKind = 'runtime-error' | 'unhandled-rejection';
+export type ConsoleEventKind =
+  | 'runtime-error'
+  | 'unhandled-rejection'
+  | 'console-error'
+  | 'console-warn'
+  | 'csp-violation';
+
+export type ConsoleEventLevel = 'error' | 'warn';
 
 export interface ConsoleEvidenceEvent {
   id: string;
   kind: ConsoleEventKind;
+  level?: ConsoleEventLevel;
   message: string;
   stack?: string;
   source?: string;
+  line?: number;
+  column?: number;
   timestamp: string;
+  firstSeen?: string;
+  lastSeen?: string;
   count: number;
+  truncated?: boolean;
 }
+
+export type NetworkOutcome = 'observed-resource' | 'success' | 'failure';
 
 export interface NetworkEvidenceEvent {
   id: string;
   url: string;
+  method?: string;
+  status?: number;
+  statusText?: string;
   initiatorType: string;
   duration: number;
   timestamp: string;
-  outcome: 'observed-resource';
+  firstSeen?: string;
+  lastSeen?: string;
+  outcome: NetworkOutcome;
   count: number;
+  error?: string;
+  responseBodySnippet?: string;
+  truncated?: boolean;
 }
 
 export interface DebugSession {
@@ -98,8 +121,12 @@ export interface DebugSession {
   status: 'active' | 'stopped';
   startedAt: string;
   stoppedAt?: string;
+  interruptedByNavigation?: boolean;
   consoleEvents: ConsoleEvidenceEvent[];
   networkEvents?: NetworkEvidenceEvent[];
+  droppedConsoleCount?: number;
+  droppedFailedNetworkCount?: number;
+  droppedOtherNetworkCount?: number;
   excludedEvidenceIds?: string[];
 }
 

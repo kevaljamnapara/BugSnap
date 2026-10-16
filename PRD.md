@@ -43,8 +43,9 @@ BugSnap centralizes this workflow.
 
 ### P0 — Required functionality
 
-**Capture**
-- Capture the visible area of the active tab after an explicit user action.
+**Capture & Active Debug Sessions**
+- Capture the visible area or custom selected region of the active tab after an explicit user action.
+- Support an explicit, opt-in runtime error session ("Start Error Session") capturing console errors, console warnings, uncaught exceptions, unhandled rejections, CSP violations, failed network requests (fetch and XHR), and subresource failures, with separate stream ring buffers, exact loss accounting, and local privacy sanitization.
 - Record page URL, title, capture timestamp, and available browser information. Omit unavailable metadata rather than fabricating values.
 - Assign a stable draft ID and persist the initial capture record and screenshot in local storage.
 - Display a useful error and retry option when capture fails.

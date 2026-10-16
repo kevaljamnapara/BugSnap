@@ -188,4 +188,12 @@ describe('Popup Component', () => {
     expect(note).toHaveTextContent(/Full Page:/i);
     expect(note).toHaveTextContent(/Not available in Chrome extensions without debugger access/i);
   });
+
+  it('renders Start Error Session with plain description of what is collected', () => {
+    render(<Popup />);
+    expect(screen.getByTestId('start-debug-session-btn')).toBeInTheDocument();
+    expect(
+      screen.getByText('Record console errors and failed network calls on this tab until you stop.'),
+    ).toBeInTheDocument();
+  });
 });

@@ -28,7 +28,7 @@ describe('generateAiDebugPrompt', () => {
     expect(prompt).not.toContain('secret-token-leak');
   });
 
-  it('includes active console errors and network events from debugSession', () => {
+  it('includes active console errors and network events from debugSession inside fenced code blocks', () => {
     const report: BugReport = {
       id: '2',
       status: 'draft',
@@ -71,10 +71,11 @@ describe('generateAiDebugPrompt', () => {
 
     const prompt = generateAiDebugPrompt(report);
     expect(prompt).toContain('## Console Errors & Warnings');
-    expect(prompt).toContain('[runtime-error] Uncaught TypeError: window.stripe is undefined');
-    expect(prompt).toContain('Stack: TypeError at checkout.js:42:10');
-    expect(prompt).toContain('## Observable Network Activity');
-    expect(prompt).toContain('- [fetch] https://example.com/api/v1/checkout/charge (450ms)');
+    expect(prompt).toContain('Uncaught TypeError: window.stripe is undefined');
+    expect(prompt).toContain('TypeError at checkout.js:42:10');
+    expect(prompt).toContain('## Other Observable Network Activity');
+    expect(prompt).toContain('https://example.com/api/v1/checkout/charge (450ms, +2.0s)');
+    expect(prompt).toContain('Untrusted Data Notice');
   });
 
   it('includes console errors and network timings fallback from metadata.diagnostics when debugSession is absent', () => {
@@ -110,8 +111,7 @@ describe('generateAiDebugPrompt', () => {
     const prompt = generateAiDebugPrompt(report);
     expect(prompt).toContain('## Console Errors & Warnings');
     expect(prompt).toContain('- [error] ReferenceError: React is not defined');
-    expect(prompt).toContain('## Observable Network Activity');
+    expect(prompt).toContain('## Other Observable Network Activity');
     expect(prompt).toContain('- [script] https://example.com/assets/app.js (85ms)');
   });
 });
-

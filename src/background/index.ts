@@ -1,7 +1,13 @@
 import { APP_NAME, APP_VERSION, DEFAULT_SEVERITY } from '../shared/constants';
 import { runRetentionCleanup, generateDraftId, saveReport, getReport } from '../shared/storage';
-import { BugReport, ConsoleEventKind } from '../shared/types';
-import { appendConsoleEvent, appendNetworkEvent, normalizeConsoleEvent, normalizeNetworkEvent } from '../shared/consoleSession';
+import { BugReport } from '../shared/types';
+import {
+  appendConsoleEventToSession,
+  appendNetworkEventToSession,
+  normalizeConsoleEvent,
+  normalizeNetworkEvent,
+} from '../shared/consoleSession';
+import { mainWorldCaptureScript, isolatedRelayScript } from '../content/debugSessionHooks';
 
 // BugSnap Background Service Worker
 chrome.runtime.onInstalled.addListener(async () => {
@@ -21,48 +27,140 @@ chrome.runtime.onStartup?.addListener(async () => {
   }
 });
 
-// Coordinate region capture when overlay reports a selection
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message?.type === 'BUGSNAP_NETWORK_EVENT') {
-    (async () => {
-      const reportId = typeof message.reportId === 'string' ? message.reportId : '';
-      if (!reportId) return;
+// Mutex queue per reportId to serialize concurrent mutations without event loss (fixes S4)
+const reportMutationQueues = new Map<string, Promise<void>>();
+
+export function enqueueReportMutation(
+  reportId: string,
+  mutator: (report: BugReport) => Promise<BugReport | void> | BugReport | void,
+): Promise<void> {
+  const previous = reportMutationQueues.get(reportId) || Promise.resolve();
+  const next = previous
+    .catch(() => undefined)
+    .then(async () => {
       const report = await getReport(reportId);
-      if (!report?.debugSession || report.debugSession.status !== 'active') return;
-      const event = normalizeNetworkEvent(message.event || {});
-      await saveReport({
-        ...report,
-        debugSession: {
-          ...report.debugSession,
-          networkEvents: appendNetworkEvent(report.debugSession.networkEvents || [], event),
-        },
-        updatedAt: new Date().toISOString(),
-      });
-    })().catch(() => undefined);
-    return;
+      if (!report) return;
+      const updated = await mutator(report);
+      if (updated) {
+        await saveReport(updated);
+      }
+    });
+
+  reportMutationQueues.set(reportId, next);
+  return next;
+}
+
+// Active session tracking: tabId -> reportId
+const activeTabToReportId = new Map<number, string>();
+const activeReportToNonce = new Map<string, string>();
+
+// Listen for tab navigation / reload to detect mid-session interruptions (S9)
+chrome.tabs.onUpdated?.addListener((tabId, changeInfo) => {
+  if (changeInfo.status === 'loading') {
+    const reportId = activeTabToReportId.get(tabId);
+    if (reportId) {
+      enqueueReportMutation(reportId, (report) => {
+        if (report.debugSession && report.debugSession.status === 'active') {
+          return {
+            ...report,
+            debugSession: {
+              ...report.debugSession,
+              interruptedByNavigation: true,
+            },
+            updatedAt: new Date().toISOString(),
+          };
+        }
+      }).catch(() => undefined);
+    }
   }
-  if (message?.type === 'BUGSNAP_CONSOLE_EVENT') {
-    (async () => {
-      const reportId = typeof message.reportId === 'string' ? message.reportId : '';
-      const kind: ConsoleEventKind = message.event?.kind === 'unhandled-rejection'
-        ? 'unhandled-rejection'
-        : 'runtime-error';
-      if (!reportId) return;
-      const report = await getReport(reportId);
-      if (!report?.debugSession || report.debugSession.status !== 'active') return;
-      const event = normalizeConsoleEvent(kind, message.event || {});
-      await saveReport({
+});
+
+// Coordinate background messages
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  // Batch events forwarded from the ISOLATED world bridge
+  if (message?.type === 'BUGSNAP_BATCH_EVENTS') {
+    const reportId = typeof message.reportId === 'string' ? message.reportId : '';
+    const rawEvents = Array.isArray(message.events) ? message.events : [];
+    if (!reportId || rawEvents.length === 0) return;
+
+    enqueueReportMutation(reportId, (report) => {
+      if (!report.debugSession || report.debugSession.status !== 'active') return;
+      let session = { ...report.debugSession };
+
+      for (const item of rawEvents) {
+        if (!item || typeof item !== 'object') continue;
+        if (item.type === 'console') {
+          const kind = item.event?.kind || 'runtime-error';
+          const norm = normalizeConsoleEvent(kind, item.event || {});
+          session = appendConsoleEventToSession(session, norm);
+        } else if (item.type === 'network') {
+          const norm = normalizeNetworkEvent(item.event || {});
+          session = appendNetworkEventToSession(session, norm);
+        }
+      }
+
+      return {
         ...report,
-        debugSession: {
-          ...report.debugSession,
-          consoleEvents: appendConsoleEvent(report.debugSession.consoleEvents, event),
-        },
+        debugSession: session,
         updatedAt: new Date().toISOString(),
-      });
-    })().catch(() => undefined);
+      };
+    }).catch(() => undefined);
     return;
   }
 
+  // Page unload notice from isolated relay
+  if (message?.type === 'BUGSNAP_PAGE_UNLOAD') {
+    const reportId = typeof message.reportId === 'string' ? message.reportId : '';
+    if (!reportId) return;
+    enqueueReportMutation(reportId, (report) => {
+      if (report.debugSession && report.debugSession.status === 'active') {
+        return {
+          ...report,
+          debugSession: {
+            ...report.debugSession,
+            interruptedByNavigation: true,
+          },
+          updatedAt: new Date().toISOString(),
+        };
+      }
+    }).catch(() => undefined);
+    return;
+  }
+
+  // Single network event handler (backward compatibility)
+  if (message?.type === 'BUGSNAP_NETWORK_EVENT') {
+    const reportId = typeof message.reportId === 'string' ? message.reportId : '';
+    if (!reportId) return;
+    enqueueReportMutation(reportId, (report) => {
+      if (!report.debugSession || report.debugSession.status !== 'active') return;
+      const norm = normalizeNetworkEvent(message.event || {});
+      return {
+        ...report,
+        debugSession: appendNetworkEventToSession(report.debugSession, norm),
+        updatedAt: new Date().toISOString(),
+      };
+    }).catch(() => undefined);
+    return;
+  }
+
+  // Single console event handler (backward compatibility)
+  if (message?.type === 'BUGSNAP_CONSOLE_EVENT') {
+    const reportId = typeof message.reportId === 'string' ? message.reportId : '';
+    if (!reportId) return;
+    enqueueReportMutation(reportId, (report) => {
+      if (!report.debugSession || report.debugSession.status !== 'active') return;
+      const kind = message.event?.kind || 'runtime-error';
+      const norm = normalizeConsoleEvent(kind, message.event || {});
+      return {
+        ...report,
+        debugSession: appendConsoleEventToSession(report.debugSession, norm),
+        updatedAt: new Date().toISOString(),
+      };
+    }).catch(() => undefined);
+    return;
+  }
+
+  // Stop session
   if (message?.type === 'BUGSNAP_STOP_CONSOLE_SESSION') {
     (async () => {
       const reportId = typeof message.reportId === 'string' ? message.reportId : '';
@@ -71,27 +169,56 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: false, error: 'Debug session was not found.' });
         return;
       }
+
+      const tabId = report.debugSession.tabId;
+      activeTabToReportId.delete(tabId);
+      activeReportToNonce.delete(reportId);
+
       try {
         await chrome.scripting.executeScript({
-          target: { tabId: report.debugSession.tabId },
+          target: { tabId },
+          world: 'MAIN',
           func: () => {
-            const cleanup = (window as Window & { __bugSnapConsoleCleanup?: () => void }).__bugSnapConsoleCleanup;
-            cleanup?.();
+            const win = window as unknown as { __bugSnapMainCleanup?: () => void };
+            win.__bugSnapMainCleanup?.();
           },
         });
       } catch {
-        // A closed or restricted tab should still stop local collection.
+        // Tab may have closed or navigated
       }
-      await saveReport({
-        ...report,
-        debugSession: { ...report.debugSession, status: 'stopped', stoppedAt: new Date().toISOString() },
-        updatedAt: new Date().toISOString(),
+
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId },
+          world: 'ISOLATED',
+          func: () => {
+            const win = window as unknown as { __bugSnapRelayCleanup?: () => void };
+            win.__bugSnapRelayCleanup?.();
+          },
+        });
+      } catch {
+        // Tab may have closed or navigated
+      }
+
+      await enqueueReportMutation(reportId, (rep) => {
+        if (!rep.debugSession) return;
+        return {
+          ...rep,
+          debugSession: {
+            ...rep.debugSession,
+            status: 'stopped',
+            stoppedAt: new Date().toISOString(),
+          },
+          updatedAt: new Date().toISOString(),
+        };
       });
+
       sendResponse({ success: true });
     })().catch((error) => sendResponse({ success: false, error: String(error) }));
     return true;
   }
 
+  // Start session
   if (message?.type === 'BUGSNAP_START_CONSOLE_SESSION') {
     (async () => {
       const reportId = typeof message.reportId === 'string' ? message.reportId : '';
@@ -101,57 +228,53 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: false, error: 'Unable to start a debug session for this report.' });
         return;
       }
+
+      const nonce = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `nonce-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+
+      activeTabToReportId.set(tabId, reportId);
+      activeReportToNonce.set(reportId, nonce);
+
+      // 1. Inject ISOLATED world relay first
       await chrome.scripting.executeScript({
         target: { tabId },
-        func: (activeReportId: string) => {
-          const sessionWindow = window as Window & { __bugSnapConsoleCleanup?: () => void };
-          sessionWindow.__bugSnapConsoleCleanup?.();
-          const send = (kind: string, payload: Record<string, unknown>) => {
-            chrome.runtime.sendMessage({ type: 'BUGSNAP_CONSOLE_EVENT', reportId: activeReportId, event: { kind, ...payload, timestamp: new Date().toISOString() } });
-          };
-          const onError = (event: ErrorEvent) => send('runtime-error', {
-            message: event.message,
-            stack: event.error instanceof Error ? event.error.stack : undefined,
-            source: event.filename,
-          });
-          const onRejection = (event: PromiseRejectionEvent) => {
-            const reason = event.reason;
-            send('unhandled-rejection', {
-              message: reason instanceof Error ? reason.message : String(reason ?? 'Unhandled promise rejection'),
-              stack: reason instanceof Error ? reason.stack : undefined,
-            });
-          };
-          const observer = typeof PerformanceObserver === 'undefined' ? undefined : new PerformanceObserver((list) => {
-            for (const entry of list.getEntries()) {
-              const resource = entry as PerformanceResourceTiming;
-              chrome.runtime.sendMessage({
-                type: 'BUGSNAP_NETWORK_EVENT', reportId: activeReportId,
-                event: { name: resource.name, initiatorType: resource.initiatorType, duration: resource.duration, timestamp: new Date().toISOString() },
-              });
-            }
-          });
-          try { observer?.observe({ type: 'resource', buffered: false }); } catch { /* unsupported observer */ }
-          window.addEventListener('error', onError);
-          window.addEventListener('unhandledrejection', onRejection);
-          sessionWindow.__bugSnapConsoleCleanup = () => {
-            window.removeEventListener('error', onError);
-            window.removeEventListener('unhandledrejection', onRejection);
-            observer?.disconnect();
-            delete sessionWindow.__bugSnapConsoleCleanup;
-          };
-        },
-        args: [reportId],
+        world: 'ISOLATED',
+        func: isolatedRelayScript,
+        args: [reportId, nonce],
       });
-      await saveReport({
-        ...report,
-        debugSession: { tabId, status: 'active', startedAt: new Date().toISOString(), consoleEvents: [] },
-        updatedAt: new Date().toISOString(),
+
+      // 2. Inject MAIN world capture hooks
+      await chrome.scripting.executeScript({
+        target: { tabId },
+        world: 'MAIN',
+        func: mainWorldCaptureScript,
+        args: [nonce],
       });
+
+      await enqueueReportMutation(reportId, (rep) => {
+        return {
+          ...rep,
+          debugSession: {
+            tabId,
+            status: 'active',
+            startedAt: new Date().toISOString(),
+            consoleEvents: [],
+            networkEvents: [],
+            droppedConsoleCount: 0,
+            droppedFailedNetworkCount: 0,
+            droppedOtherNetworkCount: 0,
+          },
+          updatedAt: new Date().toISOString(),
+        };
+      });
+
       sendResponse({ success: true });
     })().catch((error) => sendResponse({ success: false, error: error instanceof Error ? error.message : String(error) }));
     return true;
   }
 
+  // Region capture
   if (message?.type === 'BUGSNAP_REGION_CAPTURED') {
     (async () => {
       try {
@@ -202,7 +325,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         });
       }
     })();
-    return true; // Keep message channel open for async response
+    return true;
   }
 });
-
