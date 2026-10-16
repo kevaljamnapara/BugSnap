@@ -29,8 +29,8 @@ import { formatEvidence } from '../shared/evidenceFormatter';
 import { createPortableBundle } from '../shared/portableBundle';
 import { initTheme } from '../shared/theme';
 import { ThemeSwitcher } from '../shared/ThemeSwitcher';
+import { BrandMark } from '../shared/BrandMark';
 import {
-  IconBug,
   IconImage,
   IconDocument,
   IconRobot,
@@ -485,9 +485,7 @@ export const Editor: React.FC = () => {
         {/* Left Section: Brand, Subtitle, Draft badge, truncated ID */}
         <div className="header-section-left">
           <div className="app-brand">
-            <span className="app-logo-mark" aria-hidden="true">
-              <IconBug size={16} />
-            </span>
+            <BrandMark size={24} className="app-brand-mark" />
             <h1>
               {APP_NAME} <span className="header-subtitle">— Report Editor</span>
             </h1>
