@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>BugSnap Error & Network Playground</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 0 20px;
+      line-height: 1.5;
+      color: #0f172a;
+      background: #f8fafc;
+    }
+    h1 { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+    p.subtitle { color: #64748b; margin-top: 0; margin-bottom: 24px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin-bottom: 24px; }
+    button {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #1e293b;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.15s ease;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    button:hover {
+      background: #f1f5f9;
+      border-color: #94a3b8;
+    }
+    button:active {
+      transform: scale(0.98);
+    }
+    .badge-error { background: #fee2e2; color: #b91c1c; border-color: #fca5a5; }
+    .badge-warn { background: #fef3c7; color: #b45309; border-color: #fcd34d; }
+    .badge-net { background: #e0f2fe; color: #0369a1; border-color: #bae6fd; }
+    .badge-burst { background: #f3e8ff; color: #7e22ce; border-color: #d8b4fe; }
+    #log {
+      background: #0f172a;
+      color: #38bdf8;
+      padding: 16px;
+      border-radius: 8px;
+      font-family: ui-monospace, monospace;
+      font-size: 12px;
+      min-height: 140px;
+      max-height: 300px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <h1>BugSnap Error Playground</h1>
+  <p class="subtitle">Interactive test harness to verify console and network evidence capture inside a real browser.</p>
+
+  <div class="grid">
+    <!-- 1. Uncaught Exception -->
+    <button class="badge-error" id="btn-uncaught" onclick="triggerUncaught()">1. Uncaught Exception</button>
+
+    <!-- 2. Unhandled Rejection -->
+    <button class="badge-error" id="btn-rejection" onclick="triggerRejection()">2. Unhandled Rejection</button>
+
+    <!-- 3. Console Error String -->
+    <button class="badge-error" id="btn-console-string" onclick="triggerConsoleErrorString()">3. console.error(string)</button>
+
+    <!-- 4. Console Error Instance -->
+    <button class="badge-error" id="btn-console-error" onclick="triggerConsoleErrorObj()">4. console.error(Error)</button>
+
+    <!-- 5. Console Error Object -->
+    <button class="badge-error" id="btn-console-obj" onclick="triggerConsoleErrorNested()">5. console.error(Nested Object)</button>
+
+    <!-- 6. Console Warn -->
+    <button class="badge-warn" id="btn-console-warn" onclick="triggerConsoleWarn()">6. console.warn()</button>
+
+    <!-- 7. Fetch 200 -->
+    <button class="badge-net" id="btn-fetch-200" onclick="triggerFetch200()">7. fetch() 200 OK</button>
+
+    <!-- 8. Fetch 404 -->
+    <button class="badge-net" id="btn-fetch-404" onclick="triggerFetch404()">8. fetch() 404 Not Found</button>
+
+    <!-- 9. Fetch 500 -->
+    <button class="badge-net" id="btn-fetch-500" onclick="triggerFetch500()">9. fetch() 500 with Error JSON</button>
+
+    <!-- 10. Rejected Fetch -->
+    <button class="badge-net" id="btn-fetch-rejected" onclick="triggerFetchRejected()">10. fetch() Rejected (Connection Refused)</button>
+
+    <!-- 11. XHR 500 -->
+    <button class="badge-net" id="btn-xhr-500" onclick="triggerXhr500()">11. XHR 500 Error</button>
+
+    <!-- 12. XHR Network Error -->
+    <button class="badge-net" id="btn-xhr-err" onclick="triggerXhrError()">12. XHR Network Error</button>
+
+    <!-- 13. Missing Image -->
+    <button class="badge-net" id="btn-missing-img" onclick="triggerMissingImage()">13. Missing Image (&lt;img&gt; Error)</button>
+
+    <!-- 14. Missing Script -->
+    <button class="badge-net" id="btn-missing-script" onclick="triggerMissingScript()">14. Missing Script (&lt;script&gt; Error)</button>
+
+    <!-- 15. CSP Violation -->
+    <button class="badge-error" id="btn-csp" onclick="triggerCspViolation()">15. CSP Violation Event</button>
+
+    <!-- 16. Burst of 200 Errors -->
+    <button class="badge-burst" id="btn-burst" onclick="triggerBurst200()">16. Burst of 200 Errors in 100ms</button>
+
+    <!-- 17. 10,000 Char Message -->
+    <button class="badge-error" id="btn-long-msg" onclick="triggerLongMessage()">17. 10,000 Char Error Message</button>
+  </div>
+
+  <h2>Activity Log</h2>
+  <div id="log">Ready. Click any action above to fire test events.</div>
+
+  <script>
+    function log(msg) {
+      const el = document.getElementById('log');
+      el.textContent += '\n[' + new Date().toISOString().slice(11, 19) + '] ' + msg;
+      el.scrollTop = el.scrollHeight;
+    }
+
+    // 1. Uncaught Exception
+    function triggerUncaught() {
+      log('Triggering uncaught exception...');
+      setTimeout(() => {
+        throw new ReferenceError('PaymentProvider is not defined at checkoutFlow (checkout.js:42:15)');
+      }, 10);
+    }
+
+    // 2. Unhandled Rejection
+    function triggerRejection() {
+      log('Triggering unhandled promise rejection...');
+      new Promise((_, reject) => {
+        setTimeout(() => {
+          reject(new Error('Auth token renewal failed: 401 Unauthorized'));
+        }, 10);
+      });
+    }
+
+    // 3. console.error string
+    function triggerConsoleErrorString() {
+      log('Calling console.error with formatted string...');
+      console.error('Failed to load user profile for user_id=%d: timeout after %s', 4821, '5000ms');
+    }
+
+    // 4. console.error Error
+    function triggerConsoleErrorObj() {
+      log('Calling console.error with Error object...');
+      console.error(new TypeError('Cannot read properties of null (reading "permissions")'));
+    }
+
+    // 5. console.error Nested Object with circular reference
+    function triggerConsoleErrorNested() {
+      log('Calling console.error with nested object containing circular ref...');
+      const obj = {
+        component: 'CheckoutModal',
+        state: { step: 3, itemsCount: 4 },
+        user: { id: 'u_8912', role: 'admin' },
+      };
+      obj.self = obj;
+      console.error('State validation failed:', obj);
+    }
+
+    // 6. console.warn
+    function triggerConsoleWarn() {
+      log('Calling console.warn...');
+      console.warn('Deprecated component <LegacyModal> will be removed in v2.0. Use <Dialog> instead.');
+    }
+
+    // 7. fetch 200
+    async function triggerFetch200() {
+      log('Calling fetch(/api/ok)...');
+      try {
+        const res = await fetch('/api/ok');
+        const data = await res.json();
+        log('fetch 200 success: ' + JSON.stringify(data));
+      } catch (err) {
+        log('fetch error: ' + err.message);
+      }
+    }
+
+    // 8. fetch 404
+    async function triggerFetch404() {
+      log('Calling fetch(/api/not-found)...');
+      try {
+        const res = await fetch('/api/not-found');
+        log('fetch 404 completed with status ' + res.status);
+      } catch (err) {
+        log('fetch error: ' + err.message);
+      }
+    }
+
+    // 9. fetch 500
+    async function triggerFetch500() {
+      log('Calling fetch(/api/error)...');
+      try {
+        const res = await fetch('/api/error');
+        const text = await res.text();
+        log('fetch 500 completed with status ' + res.status + ' body: ' + text);
+      } catch (err) {
+        log('fetch error: ' + err.message);
+      }
+    }
+
+    // 10. Rejected fetch
+    async function triggerFetchRejected() {
+      log('Calling fetch(http://127.0.0.1:59999) [closed port]...');
+      try {
+        await fetch('http://127.0.0.1:59999/unreachable');
+      } catch (err) {
+        log('fetch rejected as expected: ' + err.message);
+      }
+    }
+
+    // 11. XHR 500
+    function triggerXhr500() {
+      log('Firing XHR GET /api/error...');
+      const xhr = new XMLHttpRequest();
+      xhr.open('GET', '/api/error');
+      xhr.onload = () => log('XHR 500 loaded with status: ' + xhr.status);
+      xhr.send();
+    }
+
+    // 12. XHR Error
+    function triggerXhrError() {
+      log('Firing XHR GET http://127.0.0.1:59999/fail [closed port]...');
+      const xhr = new XMLHttpRequest();
+      xhr.open('GET', 'http://127.0.0.1:59999/fail');
+      xhr.onerror = () => log('XHR network error triggered as expected');
+      xhr.send();
+    }
+
+    // 13. Missing Image
+    function triggerMissingImage() {
+      log('Appending <img> with non-existent source...');
+      const img = document.createElement('img');
+      img.src = '/static/images/missing-avatar-404.png';
+      img.style.display = 'none';
+      document.body.appendChild(img);
+    }
+
+    // 14. Missing Script
+    function triggerMissingScript() {
+      log('Appending <script> with non-existent source...');
+      const s = document.createElement('script');
+      s.src = '/static/js/non-existent-chunk.js';
+      document.body.appendChild(s);
+    }
+
+    // 15. CSP Violation
+    function triggerCspViolation() {
+      log('Dispatching SecurityPolicyViolationEvent...');
+      try {
+        const evt = new SecurityPolicyViolationEvent('securitypolicyviolation', {
+          blockedURI: 'https://evil-analytics.example.com/track',
+          violatedDirective: 'connect-src',
+          originalPolicy: "default-src 'self'",
+          statusCode: 200,
+        });
+        window.dispatchEvent(evt);
+        log('CSP violation event dispatched');
+      } catch {
+        // Fallback for older browsers
+        window.dispatchEvent(new Event('securitypolicyviolation'));
+      }
+    }
+
+    // 16. Burst of 200 Errors
+    function triggerBurst200() {
+      log('Firing burst of 200 console.error calls within 100ms...');
+      const start = performance.now();
+      for (let i = 1; i <= 200; i++) {
+        console.error('Burst error #' + i + ': High-frequency processing failure');
+      }
+      const dur = Math.round(performance.now() - start);
+      log('Fired 200 console errors in ' + dur + 'ms.');
+    }
+
+    // 17. 10,000 Char Message
+    function triggerLongMessage() {
+      log('Calling console.error with 10,000 character string...');
+      const text = 'CRITICAL_STACK_TRACE: ' + 'A'.repeat(10000);
+      console.error(text);
+      log('10,000 char error logged.');
+    }
+  </script>
+</body>
+</html>

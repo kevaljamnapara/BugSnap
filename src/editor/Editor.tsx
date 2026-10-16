@@ -25,6 +25,7 @@ import { DebugTimeline } from './DebugTimeline';
 import { EnvironmentDiagnostics } from './EnvironmentDiagnostics';
 import { EvidenceReview } from './EvidenceReview';
 import { generateAiDebugPrompt } from '../shared/aiPrompt';
+import { formatEvidence } from '../shared/evidenceFormatter';
 import { createPortableBundle } from '../shared/portableBundle';
 import { initTheme } from '../shared/theme';
 import { ThemeSwitcher } from '../shared/ThemeSwitcher';
@@ -973,20 +974,45 @@ export const Editor: React.FC = () => {
                       <span>Diagnostics &amp; Session Data</span>
                     </summary>
                     <div className="sidebar-diagnostics-content">
-                      {draft.debugSession && (
-                        <div className="diagnostics-panel" data-testid="console-session-summary">
-                          <h4>
-                            Runtime error session:{' '}
-                            {draft.debugSession.status === 'active' ? 'collecting page errors' : 'stopped'}
-                          </h4>
-                          <p style={{ margin: '4px 0 0' }}>
-                            Captured <strong>{draft.debugSession.consoleEvents.length}</strong> runtime event
-                            {draft.debugSession.consoleEvents.length === 1 ? '' : 's'} and{' '}
-                            <strong>{draft.debugSession.networkEvents?.length || 0}</strong> network timing
-                            {(draft.debugSession.networkEvents?.length || 0) === 1 ? '' : 's'}.
-                          </p>
-                        </div>
-                      )}
+                      {draft.debugSession && (() => {
+                        const formatted = formatEvidence(draft.debugSession);
+                        const c = formatted.counts;
+                        return (
+                          <div className="diagnostics-panel" data-testid="console-session-summary">
+                            <h4 style={{ margin: '0 0 4px', fontSize: '13px' }}>
+                              Debug session: {draft.debugSession.status === 'active' ? 'Active' : 'Stopped'}
+                            </h4>
+                            {draft.debugSession.interruptedByNavigation && (
+                              <p style={{ margin: '0 0 6px', fontSize: '11px', color: 'var(--bs-warning, #d97706)' }}>
+                                ⚠️ Session was interrupted by page navigation/reload.
+                              </p>
+                            )}
+                            <p style={{ margin: '0', fontSize: '12px' }}>
+                              <strong>{c.consoleErrors}</strong> error{c.consoleErrors === 1 ? '' : 's'},{' '}
+                              <strong>{c.consoleWarnings}</strong> warning{c.consoleWarnings === 1 ? '' : 's'},{' '}
+                              <strong>{c.failedNetwork}</strong> failed network call{c.failedNetwork === 1 ? '' : 's'},{' '}
+                              <strong>{c.otherNetwork}</strong> other call{c.otherNetwork === 1 ? '' : 's'}.
+                            </p>
+                            {(c.droppedConsole > 0 || c.droppedFailedNetwork > 0 || c.droppedOtherNetwork > 0) && (
+                              <p style={{ margin: '4px 0 0', fontSize: '11px', color: 'var(--bs-text-secondary)' }}>
+                                Older omitted: {c.droppedConsole} console, {c.droppedFailedNetwork} failed network, {c.droppedOtherNetwork} other.
+                              </p>
+                            )}
+                            <details className="diagnostics-limitations-disclosure" style={{ marginTop: '8px' }}>
+                              <summary style={{ fontSize: '11px', cursor: 'pointer', color: 'var(--bs-text-secondary)' }}>
+                                Not Captured &amp; Limitations
+                              </summary>
+                              <ul style={{ fontSize: '11px', paddingLeft: '16px', margin: '6px 0', color: 'var(--bs-text-secondary)', lineHeight: 1.4 }}>
+                                <li>console.log, info, and debug are omitted for privacy and signal.</li>
+                                <li>Pre-session events and internal net::ERR_* codes are inaccessible without debugger access.</li>
+                                <li>Cross-origin iframes, workers, and service workers are isolated.</li>
+                                <li>Request headers and bodies are never captured.</li>
+                                <li>Response bodies are captured only for failed requests (HTTP &gt;= 400), sanitized, and truncated to 2 KB.</li>
+                              </ul>
+                            </details>
+                          </div>
+                        );
+                      })()}
                       {draft.debugSession && <DebugTimeline session={draft.debugSession} />}
                       {draft.debugSession && (
                         <EvidenceReview session={draft.debugSession} onChange={handleEvidenceReviewChange} />

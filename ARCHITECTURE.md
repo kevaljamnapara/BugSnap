@@ -187,3 +187,22 @@ BugSnap follows Apple-inspired interface guidelines, strict design tokens, and p
   - URL link: Selectable and navigable monospace link.
   - Evidence-based summary (`.metadata-summary`): Derived conditionally from real diagnostics or user title; omitted when redundant.
 - **Accessibility:** Semantic HTML elements (`<span>`, `<strong>`, `<a>`); screen-reader friendly structure without ambiguous tabular layouts.
+
+## 13. Debug Session Capture Architecture (D-028, D-030)
+
+### 13.1 Two-World Injection & Secure Relay
+- **MAIN World Capture**: Script hooks injected via `chrome.scripting.executeScript({ world: 'MAIN' })` wrap `console.error`, `console.warn`, `window.fetch`, and `XMLHttpRequest.prototype.open`/`send`. Captures uncaught errors and subresource load failures via a capturing-phase `window.addEventListener('error', ..., true)`, unhandled rejections, and CSP violations. All wrappers are non-interfering, preserve arguments, timing, and errors, and never throw into the page.
+- **ISOLATED World Bridge**: Acts as a bridge between the unprivileged MAIN world and the extension service worker. Receives batched events from MAIN via `window.postMessage` validated against a per-session random nonce, and forwards them to `chrome.runtime.sendMessage`.
+- **Event Batching**: MAIN world buffers events and flushes every 250 ms or 20 events, as well as on `pagehide`/`beforeunload` to prevent service worker flooding.
+
+### 13.2 Stream Separation & Loss Accounting
+- **Console Ring Buffer**: Capped at 500 events (newest kept). Tracks `droppedConsoleCount`.
+- **Failed Network Ring Buffer**: Capped at 500 events (newest kept). Tracks `droppedFailedNetworkCount`.
+- **Other Network Ring Buffer**: Capped at 300 events (newest kept). Tracks `droppedOtherNetworkCount`.
+- **Eviction Isolation**: Influx of successful calls cannot evict failed network requests or console errors.
+- **Explicit Truncation**: Strings exceeding field limits (message 4,000, stack 8,000, URL 2,000, body snippet 2,000) append `[truncated N chars]` and flag `truncated: true`.
+
+### 13.3 Single Shared Formatter & Parity
+- All renderers (`generateMarkdownReport`, `generateCompleteBugReport`, `generateAiDebugPrompt`, and `createPortableBundle`) consume pure formatter functions from `src/shared/evidenceFormatter.ts`.
+- AI debug prompts format all page-originated strings within fenced code blocks accompanied by an untrusted-data security notice.
+

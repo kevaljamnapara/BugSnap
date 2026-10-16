@@ -93,7 +93,7 @@ describe('exportUtils', () => {
       expect(md).toContain('## Additional Notes\nReproduced on Chrome desktop responsive mode');
 
       // Footer
-      expect(md).toContain('*Report generated locally with BugSnap (₹0, privacy-first).*');
+      expect(md).toContain('*Report generated locally with BugSnap (privacy-first).*');
     });
 
     it('omits viewport row cleanly when viewport dimensions are missing', () => {
@@ -196,9 +196,9 @@ describe('exportUtils', () => {
 
       const md = generateMarkdownReport(reportWithSession, 'stem-session');
       expect(md).toContain('## Diagnostic Evidence');
-      expect(md).toContain('### Recorded Page Errors');
-      expect(md).toContain('**[runtime-error]** `Uncaught SyntaxError: Unexpected token <` (3x)');
-      expect(md).toContain('### Network & Resource Timings');
+      expect(md).toContain('### Console Errors & Warnings');
+      expect(md).toContain('**[runtime-error]** Uncaught SyntaxError: Unexpected token <');
+      expect(md).toContain('### Other Observable Network Activity');
       // Auth query param redacted by sanitizer
       expect(md).toContain('https://example.com/api/users?auth=[redacted]');
       expect(md).toContain('210ms');

@@ -173,7 +173,7 @@ export const Popup: React.FC = () => {
             </span>
             <div className="mode-text">
               <span className="mode-title">Start Error Session</span>
-              <span className="mode-desc">Capture runtime errors until you stop</span>
+              <span className="mode-desc">Record console errors and failed network calls on this tab until you stop.</span>
             </div>
           </div>
         </button>
