@@ -138,7 +138,7 @@ describe('One-Click Bug Report & Evidence Capture Suite', () => {
 
     const result = generateCompleteBugReport(minimalReport);
 
-    expect(result.summary).toBe('Captured browser issue');
+    expect(result.summary).toBe('Captured page');
     expect(result.markdown).toContain('Console error capture was not active during this capture');
     expect(result.markdown).toContain('Network diagnostic capture was not active for this capture');
     expect(result.markdown).toContain('Debugging timeline not available');

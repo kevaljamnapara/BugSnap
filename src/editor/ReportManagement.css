@@ -112,8 +112,8 @@
   left: 3px;
   width: 18px;
   height: 18px;
-  border-radius: 50%;
-  background-color: #ffffff;
+  border-radius: var(--bs-radius-full);
+  background-color: var(--bs-text-on-accent);
   transition: transform var(--bs-duration-normal) var(--bs-ease);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }

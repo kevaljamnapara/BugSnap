@@ -102,7 +102,7 @@
 /* Danger Button */
 .btn-danger {
   background-color: var(--bs-error);
-  color: #ffffff;
+  color: var(--bs-text-on-danger);
   border-color: transparent;
 }
 .btn-danger:hover:not(:disabled) {
@@ -489,28 +489,28 @@ select,
 
 .severity-pill-active-Low {
   background-color: var(--bs-sev-low) !important;
-  color: #ffffff !important;
+  color: var(--bs-text-on-accent) !important;
   font-weight: 600;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
 .severity-pill-active-Medium {
   background-color: var(--bs-sev-medium) !important;
-  color: #ffffff !important;
+  color: var(--bs-text-on-accent) !important;
   font-weight: 600;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
 .severity-pill-active-High {
   background-color: var(--bs-sev-high) !important;
-  color: #ffffff !important;
+  color: var(--bs-text-on-accent) !important;
   font-weight: 600;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
 .severity-pill-active-Critical {
   background-color: var(--bs-sev-critical) !important;
-  color: #ffffff !important;
+  color: var(--bs-text-on-accent) !important;
   font-weight: 600;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
@@ -530,7 +530,7 @@ select,
 .status-dot {
   width: 6px;
   height: 6px;
-  border-radius: 50%;
+  border-radius: var(--bs-radius-full);
   flex-shrink: 0;
 }
 
