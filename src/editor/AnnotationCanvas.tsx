@@ -262,7 +262,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
 
   return (
     <div className="annotation-container" data-testid="annotation-container">
-      {/* Toolbar */}
+      {/* Floating Apple-style Annotation Toolbar */}
       <div className="annotation-toolbar" role="toolbar" aria-label="Annotation tools">
         <div className="toolbar-group">
           <button
@@ -273,7 +273,13 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
             data-testid="tool-btn-view"
             title="Preview without drawing"
           >
-            Preview
+            <span className="tool-btn-icon" aria-hidden="true">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+            </span>
+            <span className="tool-btn-label">Preview</span>
           </button>
           <button
             type="button"
@@ -283,7 +289,12 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
             data-testid="tool-btn-rectangle"
             title="Draw rectangle annotation"
           >
-            Rectangle
+            <span className="tool-btn-icon" aria-hidden="true">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+              </svg>
+            </span>
+            <span className="tool-btn-label">Rectangle</span>
           </button>
           <button
             type="button"
@@ -293,7 +304,12 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
             data-testid="tool-btn-ellipse"
             title="Draw ellipse annotation"
           >
-            Ellipse
+            <span className="tool-btn-icon" aria-hidden="true">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <ellipse cx="12" cy="12" rx="9" ry="7" />
+              </svg>
+            </span>
+            <span className="tool-btn-label">Ellipse</span>
           </button>
           <button
             type="button"
@@ -303,7 +319,13 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
             data-testid="tool-btn-arrow"
             title="Draw arrow annotation"
           >
-            Arrow
+            <span className="tool-btn-icon" aria-hidden="true">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="5" y1="19" x2="19" y2="5" />
+                <polyline points="12 5 19 5 19 12" />
+              </svg>
+            </span>
+            <span className="tool-btn-label">Arrow</span>
           </button>
           <button
             type="button"
@@ -313,7 +335,13 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
             data-testid="tool-btn-text"
             title="Click screenshot to add text label"
           >
-            Text Label
+            <span className="tool-btn-icon" aria-hidden="true">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="4 7 4 4 20 4 20 7" />
+                <line x1="12" y1="4" x2="12" y2="20" />
+              </svg>
+            </span>
+            <span className="tool-btn-label">Text Label</span>
           </button>
         </div>
 
@@ -322,33 +350,54 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
         <div className="toolbar-group">
           <button
             type="button"
-            className="tool-btn"
+            className="tool-btn tool-btn-compact"
             onClick={handleUndo}
             disabled={annotations.length === 0}
             data-testid="tool-btn-undo"
             title="Undo last annotation"
+            aria-label="Undo"
           >
-            Undo
+            <span className="tool-btn-icon" aria-hidden="true">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 7v6h6" />
+                <path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13" />
+              </svg>
+            </span>
+            <span className="tool-btn-label">Undo</span>
           </button>
           <button
             type="button"
-            className="tool-btn"
+            className="tool-btn tool-btn-compact"
             onClick={handleRedo}
             disabled={redoStack.length === 0}
             data-testid="tool-btn-redo"
             title="Redo annotation"
+            aria-label="Redo"
           >
-            Redo
+            <span className="tool-btn-icon" aria-hidden="true">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 7v6h-6" />
+                <path d="M3 17a9 9 0 019-9 9 9 0 016 2.3L21 13" />
+              </svg>
+            </span>
+            <span className="tool-btn-label">Redo</span>
           </button>
           <button
             type="button"
-            className="tool-btn tool-btn-danger"
+            className="tool-btn tool-btn-compact tool-btn-danger"
             onClick={() => setShowClearConfirm(true)}
             disabled={annotations.length === 0}
             data-testid="tool-btn-clear"
             title="Clear all annotations"
+            aria-label="Clear all annotations"
           >
-            Clear All
+            <span className="tool-btn-icon" aria-hidden="true">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+              </svg>
+            </span>
+            <span className="tool-btn-label">Clear All</span>
           </button>
         </div>
 
@@ -363,7 +412,14 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
                 data-testid="canvas-export-btn"
                 title="Download Markdown report and screenshot evidence"
               >
-                Export
+                <span className="tool-btn-icon" aria-hidden="true">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                </span>
+                <span className="tool-btn-label">Export</span>
               </button>
             </div>
           </>

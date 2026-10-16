@@ -913,18 +913,7 @@
   left: 50%;
   transform: translateX(-50%);
   z-index: 30;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), 0 2px 6px rgba(0, 0, 0, 0.15);
-  background-color: var(--bs-bg-elevated);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  border: 1px solid var(--bs-border-strong);
-  border-radius: var(--bs-radius-pill);
-  padding: 3px 8px;
-  display: inline-flex;
-  align-items: center;
-  flex-wrap: nowrap;
-  white-space: nowrap;
-  width: max-content;
+  max-width: calc(100% - 24px);
 }
 
 .fullscreen-canvas-wrapper .annotation-stage {
@@ -938,7 +927,7 @@
   border: none;
   border-radius: 0;
   background-color: transparent;
-  padding: 56px 20px 20px 20px;
+  padding: 66px 20px 20px 20px;
   box-sizing: border-box;
   overflow: hidden;
 }

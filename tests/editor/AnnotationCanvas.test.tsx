@@ -305,4 +305,46 @@ describe('AnnotationCanvas Component', () => {
     expect(result[0].endX).toBe(200);
     expect(result[0].endY).toBe(200);
   });
+
+  it('renders toolbar with logical groupings, dividers, and vector icons', () => {
+    const handleExport = vi.fn();
+    render(
+      <AnnotationCanvas
+        imageSrc={mockImageSrc}
+        annotations={[]}
+        onAnnotationsChange={vi.fn()}
+        onExportReport={handleExport}
+      />,
+    );
+
+    const toolbar = screen.getByRole('toolbar', { name: /annotation tools/i });
+    expect(toolbar).toBeInTheDocument();
+
+    // Contains 3 toolbar groups (creation tools, history/clear, export action)
+    const groups = toolbar.querySelectorAll('.toolbar-group');
+    expect(groups).toHaveLength(3);
+
+    // Contains 2 dividers separating the 3 groups
+    const dividers = toolbar.querySelectorAll('.toolbar-divider');
+    expect(dividers).toHaveLength(2);
+
+    // Each button contains an accessible icon wrapper
+    const buttons = toolbar.querySelectorAll('button.tool-btn');
+    expect(buttons.length).toBe(9); // Preview, Rect, Ellipse, Arrow, Text, Undo, Redo, Clear, Export
+    buttons.forEach((btn) => {
+      const icon = btn.querySelector('.tool-btn-icon');
+      expect(icon).toBeInTheDocument();
+      expect(icon).toHaveAttribute('aria-hidden', 'true');
+    });
+
+    // Undo, Redo, and Clear have tool-btn-compact class
+    expect(screen.getByTestId('tool-btn-undo')).toHaveClass('tool-btn-compact');
+    expect(screen.getByTestId('tool-btn-redo')).toHaveClass('tool-btn-compact');
+    expect(screen.getByTestId('tool-btn-clear')).toHaveClass('tool-btn-compact');
+
+    // Export button works when clicked
+    const exportBtn = screen.getByTestId('canvas-export-btn');
+    fireEvent.click(exportBtn);
+    expect(handleExport).toHaveBeenCalledTimes(1);
+  });
 });

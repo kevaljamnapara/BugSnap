@@ -14,15 +14,31 @@
   flex-wrap: nowrap;
   white-space: nowrap;
   width: max-content;
-  max-width: 95vw;
-  gap: 4px;
+  max-width: calc(100% - 24px);
+  height: 44px;
+  min-height: 44px;
+  box-sizing: border-box;
+  gap: 2px;
   background-color: var(--bs-bg-elevated);
-  border: 1px solid var(--bs-border-strong);
-  border-radius: var(--bs-radius-pill);
-  padding: 4px 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--bs-border);
+  border-radius: var(--bs-radius-full);
+  padding: 0 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+[data-theme="dark"] .annotation-toolbar {
+  border-color: var(--bs-border-strong);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.28), 0 1px 3px rgba(0, 0, 0, 0.16);
+}
+
+.annotation-toolbar::-webkit-scrollbar {
+  display: none;
 }
 
 .toolbar-group {
@@ -35,7 +51,7 @@
 .toolbar-divider {
   width: 1px;
   height: 18px;
-  background-color: var(--bs-divider);
+  background-color: var(--bs-border);
   margin: 0 4px;
   flex-shrink: 0;
 }
@@ -44,20 +60,43 @@
   background-color: transparent;
   color: var(--bs-text-secondary);
   border: 1px solid transparent;
-  border-radius: var(--bs-radius-sm);
-  padding: 3px 8px;
-  font-size: 11px;
+  border-radius: var(--bs-radius-full);
+  padding: 0 8px;
+  font-size: 12px;
   font-weight: 500;
-  height: 26px;
+  height: 32px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
+  gap: 5px;
   transition: all var(--bs-duration-fast) var(--bs-ease);
   font-family: inherit;
   user-select: none;
   white-space: nowrap;
   flex-shrink: 0;
+  box-sizing: border-box;
+  line-height: 1;
+}
+
+.tool-btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.tool-btn-icon svg {
+  width: 14px;
+  height: 14px;
+  display: block;
+}
+
+.tool-btn-label {
+  display: inline-block;
+  line-height: 1;
 }
 
 .tool-btn:hover:not(:disabled) {
@@ -67,6 +106,7 @@
 
 .tool-btn:active:not(:disabled) {
   transform: scale(0.97);
+  transition: transform 100ms ease-out;
 }
 
 .tool-btn:focus-visible {
@@ -77,15 +117,33 @@
 /* Active Segmented Tool Button (Apple macOS Style) */
 .tool-btn-active {
   background-color: var(--bs-accent);
-  color: #ffffff;
+  color: var(--bs-accent-on);
   border-color: transparent;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
   font-weight: 600;
 }
 
+.tool-btn-active .tool-btn-icon {
+  color: var(--bs-accent-on);
+}
+
+.tool-btn-active:hover:not(:disabled) {
+  background-color: var(--bs-accent-hover);
+  color: var(--bs-accent-on);
+}
+
+/* Visibly muted disabled controls without breaking accessibility */
 .tool-btn:disabled {
   opacity: 0.35;
   cursor: not-allowed;
+  color: var(--bs-text-tertiary);
+  background-color: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.tool-btn-compact {
+  padding: 0 7px;
 }
 
 .tool-btn-danger:hover:not(:disabled) {
@@ -115,7 +173,7 @@
 .tool-btn-accent {
   background-color: var(--bs-accent-subtle-bg);
   color: var(--bs-accent);
-  border-color: var(--bs-accent-subtle-border);
+  border: 1px solid var(--bs-accent-subtle-border);
   font-weight: 600;
 }
 
@@ -123,6 +181,42 @@
   background-color: var(--bs-accent);
   color: var(--bs-accent-on);
   border-color: transparent;
+}
+
+/* ─── Responsive Toolbar Behavior ─── */
+@media (max-width: 900px) {
+  .tool-btn {
+    padding: 0 6px;
+    gap: 4px;
+    font-size: 11px;
+  }
+  .tool-btn-compact {
+    padding: 0 5px;
+  }
+}
+
+@media (max-width: 768px) {
+  .annotation-toolbar {
+    max-width: calc(100% - 16px);
+    padding: 0 4px;
+  }
+  .tool-btn-compact .tool-btn-label {
+    display: none;
+  }
+  .tool-btn-compact {
+    padding: 0 8px;
+    min-width: 32px;
+  }
+}
+
+@media (max-width: 580px) {
+  .tool-btn-label {
+    display: none;
+  }
+  .tool-btn {
+    padding: 0 8px;
+    min-width: 32px;
+  }
 }
 
 /* ─── Stage Area ─── */
