@@ -5,6 +5,7 @@ import { captureActiveTab } from './captureService';
 import { CaptureMode } from '../shared/types';
 import { ThemeSwitcher } from '../shared/ThemeSwitcher';
 import { initTheme } from '../shared/theme';
+import { BrandMark } from '../shared/BrandMark';
 
 export const Popup: React.FC = () => {
   const [isCapturing, setIsCapturing] = useState(false);
@@ -79,7 +80,7 @@ export const Popup: React.FC = () => {
     <div className="popup-container">
       <header className="popup-header">
         <div className="popup-title-wrapper">
-          <span className="popup-logo-icon" aria-hidden="true">📸</span>
+          <BrandMark size={28} className="popup-brand-mark" />
           <h1 className="popup-title">{APP_NAME}</h1>
         </div>
         <div className="popup-header-actions">

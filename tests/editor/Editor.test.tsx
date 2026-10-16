@@ -536,6 +536,13 @@ describe('Editor Component — Phase 3 Features', () => {
       expect(screen.getByTestId('save-status')).toBeInTheDocument();
       expect(screen.getByTestId('theme-switcher-btn')).toBeInTheDocument();
       expect(screen.getByTestId('manage-reports-btn')).toBeInTheDocument();
+
+      // Brand mark image is rendered without bug emoji
+      const brandMark = screen.getByTestId('brand-mark-img');
+      expect(brandMark).toBeInTheDocument();
+      expect(brandMark).toHaveAttribute('width', '24');
+      expect(brandMark).toHaveAttribute('height', '24');
+      expect(screen.queryByText('🐞')).not.toBeInTheDocument();
     });
 
     it('toggles the export dropdown menu on click and closes on Escape', async () => {

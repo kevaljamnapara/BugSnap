@@ -9,10 +9,15 @@ describe('Popup Component', () => {
     vi.clearAllMocks();
   });
 
-  it('renders BugSnap title and version badge', () => {
+  it('renders BugSnap title, version badge, and brand mark image without camera emoji', () => {
     render(<Popup />);
     expect(screen.getByRole('heading', { name: APP_NAME })).toBeInTheDocument();
     expect(screen.getByText(`v${APP_VERSION}`)).toBeInTheDocument();
+    const brandMark = screen.getByTestId('brand-mark-img');
+    expect(brandMark).toBeInTheDocument();
+    expect(brandMark).toHaveAttribute('width', '28');
+    expect(brandMark).toHaveAttribute('height', '28');
+    expect(screen.queryByText('📸')).not.toBeInTheDocument();
   });
 
   it('renders Capture Bug and Open Report Editor buttons', () => {

@@ -28,6 +28,7 @@ import { generateAiDebugPrompt } from '../shared/aiPrompt';
 import { createPortableBundle } from '../shared/portableBundle';
 import { initTheme } from '../shared/theme';
 import { ThemeSwitcher } from '../shared/ThemeSwitcher';
+import { BrandMark } from '../shared/BrandMark';
 
 export const Editor: React.FC = () => {
   const [draft, setDraft] = useState<BugReport | null>(null);
@@ -449,7 +450,7 @@ export const Editor: React.FC = () => {
         {/* Left Section: Brand, Subtitle, Draft badge, truncated ID */}
         <div className="header-section-left">
           <div className="app-brand">
-            <span className="app-logo-mark" aria-hidden="true">🐞</span>
+            <BrandMark size={24} className="app-brand-mark" />
             <h1>
               {APP_NAME} <span className="header-subtitle">— Report Editor</span>
             </h1>

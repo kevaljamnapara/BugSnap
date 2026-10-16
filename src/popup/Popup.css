@@ -29,9 +29,10 @@ body {
   gap: 8px;
 }
 
-.popup-logo-icon {
-  font-size: 15px;
-  line-height: 1;
+.popup-brand-mark {
+  display: block;
+  border-radius: var(--bs-radius-sm);
+  flex-shrink: 0;
 }
 
 .popup-title {
