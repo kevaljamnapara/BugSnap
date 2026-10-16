@@ -1,0 +1,555 @@
+/*
+ * BugSnap Shared Component Styles
+ * Reusable Apple-inspired UI primitives — buttons, inputs, segmented controls, badges, cards, modals, alerts.
+ * All colors reference design-tokens.css semantic variables.
+ */
+
+/* ═══════════════════ BUTTONS ═══════════════════ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: var(--bs-radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  line-height: 1;
+  letter-spacing: var(--bs-tracking-body);
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background-color var(--bs-duration-fast) var(--bs-ease),
+              color var(--bs-duration-fast) var(--bs-ease),
+              border-color var(--bs-duration-fast) var(--bs-ease),
+              box-shadow var(--bs-duration-fast) var(--bs-ease),
+              transform var(--bs-duration-fast) var(--bs-ease);
+  user-select: none;
+  white-space: nowrap;
+}
+
+.btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.btn-sm {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
+  border-radius: var(--bs-radius-sm);
+}
+
+/* Primary Button */
+.btn-primary {
+  background-color: var(--bs-accent);
+  color: var(--bs-accent-on);
+  border-color: transparent;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--bs-accent-hover);
+}
+.btn-primary:active:not(:disabled) {
+  background-color: var(--bs-accent-pressed);
+}
+
+/* Prominent Primary Button */
+.btn-prominent {
+  font-weight: 600;
+  padding: 0 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+/* Secondary Button */
+.btn-secondary {
+  background-color: var(--bs-bg-secondary);
+  color: var(--bs-text-primary);
+  border: 1px solid var(--bs-border);
+}
+.btn-secondary:hover:not(:disabled) {
+  background-color: var(--bs-bg-tertiary);
+  border-color: var(--bs-border-strong);
+}
+.btn-secondary-active {
+  background-color: var(--bs-accent-subtle-bg);
+  color: var(--bs-accent);
+  border-color: var(--bs-accent);
+}
+
+/* Ghost Button (Apple Minimal) */
+.btn-ghost {
+  background-color: transparent;
+  color: var(--bs-text-secondary);
+  border: 1px solid transparent;
+}
+.btn-ghost:hover:not(:disabled) {
+  background-color: var(--bs-bg-tertiary);
+  color: var(--bs-text-primary);
+  border-color: var(--bs-border-subtle);
+}
+.btn-ghost:active:not(:disabled) {
+  background-color: var(--bs-bg-hover);
+  transform: scale(0.97);
+}
+
+/* Danger Button */
+.btn-danger {
+  background-color: var(--bs-error);
+  color: #ffffff;
+  border-color: transparent;
+}
+.btn-danger:hover:not(:disabled) {
+  opacity: 0.92;
+}
+
+/* Danger Outline / Ghost */
+.btn-danger-outline,
+.btn-ghost-danger {
+  background-color: transparent;
+  color: var(--bs-error-text);
+  border: 1px solid var(--bs-error-border);
+}
+.btn-danger-outline:hover:not(:disabled),
+.btn-ghost-danger:hover:not(:disabled) {
+  background-color: var(--bs-error-bg);
+  border-color: var(--bs-error);
+}
+
+/* Segmented Button Group (Apple Style) */
+.btn-segmented-group {
+  display: inline-flex;
+  align-items: center;
+  background-color: var(--bs-bg-secondary);
+  border: 1px solid var(--bs-border);
+  border-radius: var(--bs-radius-sm);
+  padding: 1px;
+}
+
+.btn-segmented-group .btn-segmented {
+  border: none;
+  background: transparent;
+  border-radius: calc(var(--bs-radius-sm) - 1px);
+  height: 26px;
+  padding: 0 10px;
+  font-size: 12px;
+  color: var(--bs-text-secondary);
+}
+
+.btn-segmented-group .btn-segmented:hover:not(:disabled) {
+  background-color: var(--bs-bg-hover);
+  color: var(--bs-text-primary);
+}
+
+.btn-segmented-group .btn-segmented + .btn-segmented {
+  border-left: 1px solid var(--bs-divider);
+}
+
+/* ═══════════════════ FORM INPUTS & SELECTS ═══════════════════ */
+.form-group {
+  margin-bottom: var(--bs-space-4);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--bs-text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  letter-spacing: var(--bs-tracking-body);
+}
+
+.form-required {
+  color: var(--bs-error);
+  font-weight: 600;
+}
+
+.form-hint {
+  font-size: 11px;
+  color: var(--bs-text-tertiary);
+  line-height: 1.4;
+  margin: 0;
+}
+
+.form-input,
+.form-select,
+.form-textarea,
+select {
+  background-color: var(--bs-bg-input);
+  border: 1px solid var(--bs-border);
+  border-radius: var(--bs-radius-md);
+  color: var(--bs-text-primary);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.4;
+  padding: 7px 12px;
+  width: 100%;
+  transition: border-color var(--bs-duration-fast) var(--bs-ease),
+              box-shadow var(--bs-duration-fast) var(--bs-ease),
+              background-color var(--bs-duration-fast) var(--bs-ease);
+}
+
+.form-input:hover,
+.form-select:hover,
+.form-textarea:hover,
+select:hover {
+  background-color: var(--bs-bg-input-hover);
+  border-color: var(--bs-border-strong);
+}
+
+.form-input::placeholder,
+.form-textarea::placeholder {
+  color: var(--bs-text-tertiary);
+}
+
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus,
+select:focus {
+  outline: none;
+  background-color: var(--bs-bg-input);
+  border-color: var(--bs-accent);
+  box-shadow: 0 0 0 3px var(--bs-focus-ring);
+}
+
+.form-input-error {
+  border-color: var(--bs-error) !important;
+}
+.form-input-error:focus {
+  box-shadow: 0 0 0 3px rgba(255, 69, 58, 0.25) !important;
+}
+
+.field-error-text {
+  font-size: 11px;
+  color: var(--bs-error-text);
+  font-weight: 500;
+}
+
+.form-textarea {
+  resize: vertical;
+  line-height: 1.5;
+  min-height: 76px;
+  padding: 8px 12px;
+}
+
+/* Custom styled select (No native default arrow) */
+select,
+.form-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238e8e93' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 12px;
+  padding-right: 32px;
+  cursor: pointer;
+  height: 34px;
+}
+
+/* ═══════════════════ BADGES ═══════════════════ */
+.badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: var(--bs-radius-full);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  line-height: 1.45;
+  display: inline-flex;
+  align-items: center;
+}
+
+.badge-draft {
+  background-color: var(--bs-accent-subtle-bg);
+  color: var(--bs-accent);
+  border: 1px solid var(--bs-accent-subtle-border);
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.badge-id {
+  background-color: var(--bs-bg-secondary);
+  color: var(--bs-text-secondary);
+  font-family: var(--bs-font-mono);
+  border: 1px solid var(--bs-border);
+  text-transform: none;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.badge-status-draft {
+  background-color: var(--bs-warning-bg);
+  color: var(--bs-warning);
+  border: 1px solid var(--bs-warning-border);
+}
+
+.badge-status-saved {
+  background-color: var(--bs-success-bg);
+  color: var(--bs-success);
+  border: 1px solid var(--bs-success-border);
+}
+
+.badge-session-label {
+  background-color: var(--bs-accent-subtle-bg);
+  color: var(--bs-accent);
+  border: 1px solid var(--bs-accent-subtle-border);
+  text-transform: none;
+}
+
+/* ═══════════════════ CARDS ═══════════════════ */
+.editor-card {
+  background-color: var(--bs-bg-primary);
+  border: 1px solid var(--bs-border);
+  border-radius: var(--bs-radius-lg);
+  padding: var(--bs-space-5);
+  box-shadow: var(--bs-card-shadow), var(--bs-card-inner-rim);
+  transition: border-color var(--bs-duration-fast) var(--bs-ease);
+}
+
+.editor-card h2 {
+  margin: 0 0 var(--bs-space-4) 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--bs-text-primary);
+  letter-spacing: var(--bs-tracking-title);
+  padding-bottom: var(--bs-space-3);
+  border-bottom: 1px solid var(--bs-divider);
+}
+
+/* ═══════════════════ ALERTS & DIAGNOSTICS ═══════════════════ */
+.editor-alert {
+  padding: 12px var(--bs-space-4);
+  border-radius: var(--bs-radius-md);
+  margin-bottom: var(--bs-space-3);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.editor-alert-error {
+  background-color: var(--bs-error-bg);
+  border: 1px solid var(--bs-error-border);
+  color: var(--bs-error-text);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.editor-alert-info {
+  background-color: var(--bs-bg-secondary);
+  border: 1px solid var(--bs-border);
+  color: var(--bs-text-secondary);
+}
+
+.editor-alert-info strong {
+  color: var(--bs-text-primary);
+}
+
+.editor-alert-info h2 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--bs-text-primary);
+  margin: 0 0 6px 0;
+  letter-spacing: var(--bs-tracking-title);
+}
+
+.editor-alert-success {
+  background-color: var(--bs-success-bg);
+  border: 1px solid var(--bs-success-border);
+  color: var(--bs-success);
+}
+
+/* ═══════════════════ MODALS ═══════════════════ */
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--bs-bg-overlay);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: var(--bs-space-4);
+  animation: bs-fade-in var(--bs-duration-normal) var(--bs-ease-out);
+}
+
+.modal-dialog {
+  background-color: var(--bs-bg-elevated);
+  border: 1px solid var(--bs-border-strong);
+  border-radius: var(--bs-radius-lg);
+  max-width: 440px;
+  width: 100%;
+  padding: var(--bs-space-6);
+  box-shadow: var(--bs-modal-shadow);
+  animation: bs-scale-in var(--bs-duration-normal) var(--bs-ease-spring);
+}
+
+.modal-title {
+  margin: 0 0 8px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--bs-text-primary);
+  letter-spacing: var(--bs-tracking-tight);
+}
+
+.modal-body {
+  margin: 0 0 var(--bs-space-5) 0;
+  font-size: 13px;
+  color: var(--bs-text-secondary);
+  line-height: 1.5;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* ═══════════════════ LOADING ═══════════════════ */
+.editor-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 64px 0;
+  color: var(--bs-text-tertiary);
+  font-size: 13px;
+}
+
+/* ═══════════════════ ANIMATIONS ═══════════════════ */
+@keyframes bs-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes bs-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes bs-pulse {
+  from { opacity: 0.5; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal-backdrop,
+  .modal-dialog {
+    animation: none;
+  }
+}
+
+/* ═══════════════════ SEVERITY PILLS (APPLE SEGMENTED CONTROL) ═══════════════════ */
+.severity-selector {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2px;
+  background-color: var(--bs-bg-input);
+  border: 1px solid var(--bs-border);
+  border-radius: var(--bs-radius-md);
+  padding: 3px;
+}
+
+.severity-pill {
+  padding: 6px 4px;
+  border-radius: calc(var(--bs-radius-md) - 3px);
+  border: 1px solid transparent;
+  background-color: transparent;
+  color: var(--bs-text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: center;
+  transition: all var(--bs-duration-fast) var(--bs-ease);
+  font-family: inherit;
+  user-select: none;
+}
+
+.severity-pill:hover {
+  color: var(--bs-text-primary);
+  background-color: var(--bs-bg-hover);
+}
+
+.severity-pill-active-Low {
+  background-color: var(--bs-sev-low) !important;
+  color: #ffffff !important;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.severity-pill-active-Medium {
+  background-color: var(--bs-sev-medium) !important;
+  color: #ffffff !important;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.severity-pill-active-High {
+  background-color: var(--bs-sev-high) !important;
+  color: #ffffff !important;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.severity-pill-active-Critical {
+  background-color: var(--bs-sev-critical) !important;
+  color: #ffffff !important;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+/* ═══════════════════ SAVE STATUS ═══════════════════ */
+.save-status-container {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: var(--bs-radius-full);
+  background-color: var(--bs-bg-input);
+  border: 1px solid var(--bs-border);
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-dot-saving {
+  background-color: var(--bs-accent);
+  animation: bs-pulse 1s infinite alternate;
+}
+.status-dot-saved {
+  background-color: var(--bs-success);
+}
+.status-dot-error {
+  background-color: var(--bs-error);
+}
+
+.status-text {
+  color: var(--bs-text-secondary);
+  font-size: 11px;
+}
+.status-text-error {
+  color: var(--bs-error-text);
+  font-weight: 500;
+}

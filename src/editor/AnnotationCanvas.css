@@ -1,0 +1,315 @@
+/* ═══════════════════ ANNOTATION CANVAS ═══════════════════ */
+
+.annotation-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bs-space-3);
+}
+
+/* ─── Floating Apple-style Toolbar ─── */
+.annotation-toolbar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  width: max-content;
+  max-width: calc(100% - 24px);
+  height: 44px;
+  min-height: 44px;
+  box-sizing: border-box;
+  gap: 2px;
+  background-color: var(--bs-bg-elevated);
+  border: 1px solid var(--bs-border);
+  border-radius: var(--bs-radius-full);
+  padding: 0 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+[data-theme="dark"] .annotation-toolbar {
+  border-color: var(--bs-border-strong);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.28), 0 1px 3px rgba(0, 0, 0, 0.16);
+}
+
+.annotation-toolbar::-webkit-scrollbar {
+  display: none;
+}
+
+.toolbar-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.toolbar-divider {
+  width: 1px;
+  height: 18px;
+  background-color: var(--bs-border);
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+
+.tool-btn {
+  background-color: transparent;
+  color: var(--bs-text-secondary);
+  border: 1px solid transparent;
+  border-radius: var(--bs-radius-full);
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 500;
+  height: 32px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  transition: all var(--bs-duration-fast) var(--bs-ease);
+  font-family: inherit;
+  user-select: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  line-height: 1;
+}
+
+.tool-btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.tool-btn-icon svg {
+  width: 14px;
+  height: 14px;
+  display: block;
+}
+
+.tool-btn-label {
+  display: inline-block;
+  line-height: 1;
+}
+
+.tool-btn:hover:not(:disabled) {
+  background-color: var(--bs-bg-hover);
+  color: var(--bs-text-primary);
+}
+
+.tool-btn:active:not(:disabled) {
+  transform: scale(0.97);
+  transition: transform 100ms ease-out;
+}
+
+.tool-btn:focus-visible {
+  outline: 2px solid var(--bs-accent);
+  outline-offset: 1px;
+}
+
+/* Active Segmented Tool Button (Apple macOS Style) */
+.tool-btn-active {
+  background-color: var(--bs-accent);
+  color: var(--bs-accent-on);
+  border-color: transparent;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  font-weight: 600;
+}
+
+.tool-btn-active .tool-btn-icon {
+  color: var(--bs-accent-on);
+}
+
+.tool-btn-active:hover:not(:disabled) {
+  background-color: var(--bs-accent-hover);
+  color: var(--bs-accent-on);
+}
+
+/* Visibly muted disabled controls without breaking accessibility */
+.tool-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  color: var(--bs-text-tertiary);
+  background-color: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.tool-btn-compact {
+  padding: 0 7px;
+}
+
+.tool-btn-danger:hover:not(:disabled) {
+  background-color: var(--bs-error-bg);
+  color: var(--bs-error-text);
+  border-color: var(--bs-error-border);
+}
+
+/* ─── Action buttons in toolbar ─── */
+.toolbar-group-actions {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.tool-btn-action {
+  background-color: var(--bs-bg-input);
+  color: var(--bs-text-primary);
+  border: 1px solid var(--bs-border);
+}
+
+.tool-btn-action:hover:not(:disabled) {
+  border-color: var(--bs-border-strong);
+  background-color: var(--bs-bg-hover);
+}
+
+.tool-btn-accent {
+  background-color: var(--bs-accent-subtle-bg);
+  color: var(--bs-accent);
+  border: 1px solid var(--bs-accent-subtle-border);
+  font-weight: 600;
+}
+
+.tool-btn-accent:hover:not(:disabled) {
+  background-color: var(--bs-accent);
+  color: var(--bs-accent-on);
+  border-color: transparent;
+}
+
+/* ─── Responsive Toolbar Behavior ─── */
+@media (max-width: 900px) {
+  .tool-btn {
+    padding: 0 6px;
+    gap: 4px;
+    font-size: 11px;
+  }
+  .tool-btn-compact {
+    padding: 0 5px;
+  }
+}
+
+@media (max-width: 768px) {
+  .annotation-toolbar {
+    max-width: calc(100% - 16px);
+    padding: 0 4px;
+  }
+  .tool-btn-compact .tool-btn-label {
+    display: none;
+  }
+  .tool-btn-compact {
+    padding: 0 8px;
+    min-width: 32px;
+  }
+}
+
+@media (max-width: 580px) {
+  .tool-btn-label {
+    display: none;
+  }
+  .tool-btn {
+    padding: 0 8px;
+    min-width: 32px;
+  }
+}
+
+/* ─── Stage Area ─── */
+.annotation-stage {
+  position: relative;
+  background-color: var(--bs-bg-app);
+  border: 1px solid var(--bs-border);
+  border-radius: var(--bs-radius-md);
+  overflow: hidden;
+  user-select: none;
+  touch-action: none;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.stage-wrapper {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+}
+
+.stage-image {
+  max-width: 100%;
+  max-height: 100%;
+  height: auto;
+  display: block;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.stage-svg-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
+}
+
+.cursor-default {
+  cursor: default !important;
+}
+
+/* ─── Text Input Dialog ─── */
+.text-input-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--bs-bg-overlay);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1050;
+  padding: var(--bs-space-4);
+  animation: bs-fade-in var(--bs-duration-normal) var(--bs-ease-out);
+}
+
+.text-input-dialog {
+  background-color: var(--bs-bg-elevated);
+  border: 1px solid var(--bs-border-strong);
+  border-radius: var(--bs-radius-md);
+  padding: 18px;
+  max-width: 360px;
+  width: 100%;
+  box-shadow: var(--bs-modal-shadow);
+  animation: bs-scale-in var(--bs-duration-normal) var(--bs-ease-spring);
+}
+
+.text-input-dialog h4 {
+  margin: 0 0 10px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--bs-text-primary);
+  letter-spacing: var(--bs-tracking-tight);
+}
+
+.text-input-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: var(--bs-space-3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .text-input-dialog-overlay,
+  .text-input-dialog {
+    animation: none;
+  }
+}
