@@ -25,9 +25,25 @@ import { DebugTimeline } from './DebugTimeline';
 import { EnvironmentDiagnostics } from './EnvironmentDiagnostics';
 import { EvidenceReview } from './EvidenceReview';
 import { generateAiDebugPrompt } from '../shared/aiPrompt';
+import { formatEvidence } from '../shared/evidenceFormatter';
 import { createPortableBundle } from '../shared/portableBundle';
 import { initTheme } from '../shared/theme';
 import { ThemeSwitcher } from '../shared/ThemeSwitcher';
+import { BrandMark } from '../shared/BrandMark';
+import {
+  IconImage,
+  IconDocument,
+  IconRobot,
+  IconInfo,
+  IconMoreHorizontal,
+  IconTrash,
+  IconPackage,
+  IconGear,
+  IconStop,
+  IconClose,
+  IconChevronDown,
+  IconArrowLeft,
+} from '../shared/icons';
 
 export const Editor: React.FC = () => {
   const [draft, setDraft] = useState<BugReport | null>(null);
@@ -60,9 +76,10 @@ export const Editor: React.FC = () => {
   const [exportSuccessMessage, setExportSuccessMessage] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
 
-  // Secondary Actions Dropdown Menu State
+  // Overflow / Secondary Actions Dropdown Menu State
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
   const menuContainerRef = useRef<HTMLDivElement>(null);
+  const overflowTriggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!isMenuOpen) return;
@@ -74,6 +91,7 @@ export const Editor: React.FC = () => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setIsMenuOpen(false);
+        overflowTriggerRef.current?.focus();
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -323,16 +341,16 @@ export const Editor: React.FC = () => {
         await navigator.clipboard.write([
           new ClipboardItem({ 'image/png': blob }),
         ]);
-        setCopyFeedback('Screenshot copied to clipboard!');
+        setCopyFeedback('Screenshot copied.');
         setTimeout(() => setCopyFeedback(null), 3500);
       } else {
         setCopyError(
-          'Clipboard image copy is not supported in this browser. You can right-click the screenshot to copy it, or use Export Report.',
+          "Couldn't copy screenshot. Your browser blocked clipboard access. You can right-click the image to copy it, or use Export Report to save it as a file.",
         );
       }
     } catch (err) {
       setCopyError(
-        `Failed to copy screenshot: ${err instanceof Error ? err.message : String(err)}. You can right-click the image to copy it, or use Export Report.`,
+        `Couldn't copy screenshot. ${err instanceof Error ? err.message : String(err)}. You can right-click the image to copy it, or use Export Report to save it as a file.`,
       );
     }
   };
@@ -357,14 +375,16 @@ export const Editor: React.FC = () => {
 
       if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
         await navigator.clipboard.writeText(mdContent);
-        setCopyFeedback('Bug report Markdown copied to clipboard!');
+        setCopyFeedback('Report copied.');
         setTimeout(() => setCopyFeedback(null), 3500);
       } else {
-        setCopyError('Clipboard writeText is not supported in this browser environment.');
+        setCopyError(
+          "Couldn't copy the report. Your browser blocked clipboard access. Use Export Report to save it as a file.",
+        );
       }
     } catch (err) {
       setCopyError(
-        `Failed to copy bug report: ${err instanceof Error ? err.message : String(err)}`,
+        `Couldn't copy the report. ${err instanceof Error ? err.message : String(err)}. Use Export Report to save it as a file.`,
       );
     }
   };
@@ -436,10 +456,26 @@ export const Editor: React.FC = () => {
     setDraft(updated);
   };
 
+  // B1: Copy AI Prompt with try/catch and honest error handling
   const handleCopyAiPrompt = async () => {
-    if (!draft || !navigator.clipboard?.writeText) return setCopyError('Clipboard prompt copy is unavailable in this browser.');
-    await navigator.clipboard.writeText(generateAiDebugPrompt(draft));
-    setCopyFeedback('Detailed AI-ready debugging prompt copied locally.');
+    if (!draft) return;
+    setCopyError(null);
+    setCopyFeedback(null);
+    try {
+      if (!navigator.clipboard || typeof navigator.clipboard.writeText !== 'function') {
+        setCopyError(
+          "Couldn't copy AI prompt. Your browser blocked clipboard access. Use Export Report to save it as a file.",
+        );
+        return;
+      }
+      await navigator.clipboard.writeText(generateAiDebugPrompt(draft));
+      setCopyFeedback('AI prompt copied.');
+      setTimeout(() => setCopyFeedback(null), 3500);
+    } catch (err) {
+      setCopyError(
+        `Couldn't copy AI prompt. ${err instanceof Error ? err.message : String(err)}. Use Export Report to save it as a file.`,
+      );
+    }
   };
 
   return (
@@ -449,7 +485,7 @@ export const Editor: React.FC = () => {
         {/* Left Section: Brand, Subtitle, Draft badge, truncated ID */}
         <div className="header-section-left">
           <div className="app-brand">
-            <span className="app-logo-mark" aria-hidden="true">🐞</span>
+            <BrandMark size={24} className="app-brand-mark" />
             <h1>
               {APP_NAME} <span className="header-subtitle">— Report Editor</span>
             </h1>
@@ -468,8 +504,20 @@ export const Editor: React.FC = () => {
           </div>
         </div>
 
-        {/* Center Section: Save status, Theme switcher, Manage Reports & Settings, Context toggle */}
+        {/* Center Section: Save status or Back to Editor button */}
         <div className="header-section-center">
+          {viewMode === 'management' && (
+            <button
+              type="button"
+              className="btn header-pill-btn btn-secondary"
+              onClick={() => setViewMode('editor')}
+              data-testid="manage-reports-btn"
+            >
+              <IconArrowLeft size={14} />
+              <span>← Back to Editor</span>
+            </button>
+          )}
+
           {draft && !isDiscarded && viewMode === 'editor' && (
             <div className="save-status-container header-status-pill" data-testid="save-status">
               <span className={`status-dot status-dot-${saveStatus}`} />
@@ -480,105 +528,93 @@ export const Editor: React.FC = () => {
               </span>
             </div>
           )}
-
-          <div className="header-divider" aria-hidden="true" />
-
-          <ThemeSwitcher className="header-pill-btn" />
-
-          <div className="header-divider" aria-hidden="true" />
-
-          <button
-            type="button"
-            className="btn header-pill-btn"
-            onClick={() => setViewMode(viewMode === 'editor' ? 'management' : 'editor')}
-            data-testid="manage-reports-btn"
-          >
-            <span aria-hidden="true">{viewMode === 'editor' ? '⚙' : '←'}</span>
-            <span>{viewMode === 'editor' ? 'Manage Reports & Settings' : '← Back to Editor'}</span>
-          </button>
-
-          {draft && !isDiscarded && viewMode === 'editor' && (
-            <>
-              <div className="header-divider" aria-hidden="true" />
-              <button
-                type="button"
-                className={`btn header-pill-btn ${showSidePanel ? 'header-pill-active' : ''}`}
-                onClick={() => setShowSidePanel(!showSidePanel)}
-                data-testid="toggle-diagnostics-btn"
-                title={showSidePanel ? 'Hide Page Context sidebar' : 'Show Page Context sidebar'}
-                aria-label="Toggle Page Context sidebar"
-              >
-                <span aria-hidden="true">ℹ️</span>
-                <span>Context</span>
-              </button>
-            </>
-          )}
         </div>
 
-        {/* Right Section: Split Primary Button + Dropdown, Divider, Discard Draft */}
+        {/* Right Section: Copy Actions, Page Context, Overflow Menu */}
         <div className="header-section-right">
           {draft && !isDiscarded && viewMode === 'editor' && (
             <>
-              {/* Separate 3 Copy Buttons */}
+              {/* Separate 3 Copy Buttons with exactly one primary action */}
               <div className="header-copy-actions" role="group" aria-label="Copy actions">
-                <button
-                  type="button"
-                  className="btn header-pill-btn"
-                  onClick={handleCopyScreenshot}
-                  data-testid="copy-screenshot-btn"
-                  title="Copy screenshot image to clipboard"
-                >
-                  <span aria-hidden="true">🖼️</span>
-                  <span>Copy Image</span>
-                </button>
-
                 <button
                   type="button"
                   className="btn header-pill-btn btn-primary"
                   onClick={handleCopyReport}
                   data-testid="copy-report-btn"
-                  title="Copy Markdown bug report to clipboard"
+                  title="Copy Markdown report to clipboard"
                 >
-                  <span aria-hidden="true">📝</span>
+                  <IconDocument size={14} />
                   <span>Copy Report</span>
                 </button>
 
                 <button
                   type="button"
-                  className="btn header-pill-btn"
+                  className="btn header-pill-btn btn-secondary"
+                  onClick={handleCopyScreenshot}
+                  data-testid="copy-screenshot-btn"
+                  title="Copy screenshot image to clipboard"
+                >
+                  <IconImage size={14} />
+                  <span>Copy Image</span>
+                </button>
+
+                <button
+                  type="button"
+                  className="btn header-pill-btn btn-secondary"
                   onClick={handleCopyAiPrompt}
                   data-testid="copy-ai-prompt-btn"
                   title="Copy AI debugging prompt to clipboard"
                 >
-                  <span aria-hidden="true">🤖</span>
-                  <span>Copy Prompt</span>
+                  <IconRobot size={14} />
+                  <span>Copy AI Prompt</span>
                 </button>
               </div>
 
               <div className="header-divider" aria-hidden="true" />
 
-              {/* Export Menu */}
-              <div className="split-action-container" ref={menuContainerRef}>
+              <button
+                type="button"
+                className={`btn header-pill-btn btn-secondary ${showSidePanel ? 'header-pill-active' : ''}`}
+                onClick={() => setShowSidePanel(!showSidePanel)}
+                data-testid="toggle-diagnostics-btn"
+                title={showSidePanel ? 'Hide Page Context sidebar' : 'Show Page Context sidebar'}
+                aria-label="Toggle Page Context sidebar"
+              >
+                <IconInfo size={14} />
+                <span>Page Context</span>
+              </button>
+
+              <div className="header-divider" aria-hidden="true" />
+
+              {/* Compact Overflow Menu */}
+              <div className="split-action-container header-overflow-container" ref={menuContainerRef}>
                 <button
                   type="button"
-                  className={`btn header-pill-btn ${isMenuOpen ? 'header-pill-active' : ''}`}
+                  ref={overflowTriggerRef}
+                  className={`btn header-pill-btn btn-secondary ${isMenuOpen ? 'header-pill-active' : ''}`}
                   onClick={() => setIsMenuOpen((prev) => !prev)}
-                  aria-label="Export options"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
+                      e.preventDefault();
+                      setIsMenuOpen(true);
+                    }
+                  }}
+                  aria-label="More options"
                   aria-haspopup="menu"
                   aria-expanded={isMenuOpen}
                   data-testid="more-actions-btn"
-                  title="Export options"
+                  title="More options"
                 >
-                  <span aria-hidden="true">📦</span>
-                  <span>Export</span>
-                  <span className="chevron-icon" aria-hidden="true">▾</span>
+                  <IconMoreHorizontal size={14} />
+                  <span className="overflow-btn-text">More</span>
+                  <IconChevronDown size={12} className="chevron-icon" />
                 </button>
 
                 {/* Secondary Actions Dropdown Menu */}
                 <div
                   className={`header-dropdown-menu ${isMenuOpen ? 'menu-open' : ''}`}
                   role="menu"
-                  aria-label="Export options"
+                  aria-label="More options"
                   data-testid="more-actions-menu"
                 >
                   <button
@@ -593,8 +629,8 @@ export const Editor: React.FC = () => {
                     data-testid="export-report-btn"
                     title="Download Markdown report and screenshot evidence"
                   >
-                    <span className="menu-item-icon" aria-hidden="true">📄</span>
-                    <span>Export Report</span>
+                    <IconDocument size={14} className="menu-item-icon" />
+                    <span>Export Report (Markdown + PNG)</span>
                   </button>
 
                   <button
@@ -609,44 +645,66 @@ export const Editor: React.FC = () => {
                     data-testid="export-zip-btn"
                     title="Download portable ZIP bundle with report and diagnostics"
                   >
-                    <span className="menu-item-icon" aria-hidden="true">📦</span>
-                    <span>Export ZIP</span>
+                    <IconPackage size={14} className="menu-item-icon" />
+                    <span>Export Bundle (ZIP)</span>
                   </button>
 
                   {draft?.debugSession?.status === 'active' && (
-                    <>
-                      <div className="dropdown-divider" role="separator" />
-                      <button
-                        type="button"
-                        className="dropdown-menu-item dropdown-item-warning"
-                        role="menuitem"
-                        onClick={() => {
-                          setIsMenuOpen(false);
-                          handleStopDebugSession();
-                        }}
-                        data-testid="stop-debug-session-btn"
-                      >
-                        <span className="menu-item-icon" aria-hidden="true">🛑</span>
-                        <span>Stop Error Session</span>
-                      </button>
-                    </>
+                    <button
+                      type="button"
+                      className="dropdown-menu-item dropdown-item-warning"
+                      role="menuitem"
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        handleStopDebugSession();
+                      }}
+                      data-testid="stop-debug-session-btn"
+                    >
+                      <IconStop size={14} className="menu-item-icon" />
+                      <span>Stop Error Session</span>
+                    </button>
                   )}
+
+                  <div className="dropdown-divider" role="separator" />
+
+                  <button
+                    type="button"
+                    className="dropdown-menu-item"
+                    role="menuitem"
+                    onClick={() => {
+                      setIsMenuOpen(false);
+                      setViewMode('management');
+                    }}
+                    data-testid="manage-reports-btn"
+                    title="Manage Reports & Settings"
+                  >
+                    <IconGear size={14} className="menu-item-icon" />
+                    <span>Manage Reports &amp; Settings</span>
+                  </button>
+
+                  <div className="dropdown-theme-item">
+                    <span className="dropdown-theme-label">Theme</span>
+                    <ThemeSwitcher />
+                  </div>
+
+                  <div className="dropdown-divider" role="separator" />
+
+                  <button
+                    type="button"
+                    className="dropdown-menu-item dropdown-item-danger"
+                    role="menuitem"
+                    onClick={() => {
+                      setIsMenuOpen(false);
+                      handleOpenDiscardModal();
+                    }}
+                    data-testid="discard-draft-btn"
+                    title="Discard this report"
+                  >
+                    <IconTrash size={14} className="menu-item-icon" />
+                    <span>Discard report</span>
+                  </button>
                 </div>
               </div>
-
-              <div className="header-divider" aria-hidden="true" />
-
-              {/* Discard Draft Button */}
-              <button
-                type="button"
-                className="btn header-pill-btn btn-danger-pill"
-                onClick={handleOpenDiscardModal}
-                data-testid="discard-draft-btn"
-                title="Discard this bug report draft"
-              >
-                <span aria-hidden="true">🗑</span>
-                <span>Discard Draft</span>
-              </button>
             </>
           )}
         </div>
@@ -656,10 +714,9 @@ export const Editor: React.FC = () => {
       {showDiscardModal && (
         <div className="modal-backdrop" role="dialog" aria-modal="true" data-testid="discard-modal">
           <div className="modal-dialog">
-            <h3 className="modal-title">Discard this bug report?</h3>
+            <h3 className="modal-title">Discard this report?</h3>
             <p className="modal-body">
-              This will permanently delete this draft and its associated screenshot evidence from
-              local storage. This action cannot be undone.
+              The screenshot, annotations and notes will be permanently deleted from this browser. This can't be undone.
             </p>
 
             {discardError && (
@@ -676,7 +733,7 @@ export const Editor: React.FC = () => {
                 disabled={isDiscarding}
                 data-testid="cancel-discard-btn"
               >
-                Keep Editing
+                Keep editing
               </button>
               <button
                 type="button"
@@ -685,7 +742,7 @@ export const Editor: React.FC = () => {
                 disabled={isDiscarding}
                 data-testid="confirm-discard-btn"
               >
-                {isDiscarding ? 'Deleting...' : 'Discard and Delete'}
+                {isDiscarding ? 'Deleting...' : 'Discard report'}
               </button>
             </div>
           </div>
@@ -695,17 +752,13 @@ export const Editor: React.FC = () => {
       {/* Copy Feedback and Error Alerts */}
       {copyFeedback && (
         <div className="editor-alert editor-alert-info" role="status" data-testid="copy-feedback-alert">
-          <div>
-            <strong>Clipboard:</strong> {copyFeedback}
-          </div>
+          <div>{copyFeedback}</div>
         </div>
       )}
 
       {copyError && (
         <div className="editor-alert editor-alert-error" role="alert" data-testid="copy-error-alert">
-          <div>
-            <strong>Clipboard Notice:</strong> {copyError}
-          </div>
+          <div>{copyError}</div>
         </div>
       )}
 
@@ -839,16 +892,29 @@ export const Editor: React.FC = () => {
                         title="Close Page Context"
                         aria-label="Close Page Context"
                       >
-                        ✕
+                        <IconClose size={14} />
                       </button>
                     </div>
                     <div className="metadata-grid">
-                      <div className="metadata-item">
-                        <span className="metadata-label">Report Summary</span>
-                        <strong className="metadata-value metadata-summary" data-testid="derived-summary-preview">
-                          {(draft.title && draft.title.trim()) || deriveReportSummary(draft)}
-                        </strong>
-                      </div>
+                      {(() => {
+                        const effectiveTitle = draft.title?.trim();
+                        const derivedSummary = deriveReportSummary(draft);
+                        const pageTitle = (draft.metadata.title || '').trim();
+                        // Omit duplicate summary row when it merely repeats the page title with no diagnostics or manual title
+                        const isDuplicateOfPageTitle =
+                          !effectiveTitle && derivedSummary.toLowerCase() === pageTitle.toLowerCase();
+                        if (isDuplicateOfPageTitle || (!effectiveTitle && !derivedSummary)) {
+                          return null;
+                        }
+                        return (
+                          <div className="metadata-item">
+                            <span className="metadata-label">Report Summary</span>
+                            <strong className="metadata-value metadata-summary" data-testid="derived-summary-preview">
+                              {effectiveTitle || derivedSummary}
+                            </strong>
+                          </div>
+                        );
+                      })()}
 
                       <div className="metadata-item">
                         <span className="metadata-label">Page Title</span>
@@ -865,7 +931,7 @@ export const Editor: React.FC = () => {
                               href={draft.metadata.url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="metadata-link"
+                              className="metadata-link metadata-value-url"
                             >
                               {draft.metadata.url}
                             </a>
@@ -906,20 +972,45 @@ export const Editor: React.FC = () => {
                       <span>Diagnostics &amp; Session Data</span>
                     </summary>
                     <div className="sidebar-diagnostics-content">
-                      {draft.debugSession && (
-                        <div className="diagnostics-panel" data-testid="console-session-summary">
-                          <h4>
-                            Runtime error session:{' '}
-                            {draft.debugSession.status === 'active' ? 'collecting page errors' : 'stopped'}
-                          </h4>
-                          <p style={{ margin: '4px 0 0' }}>
-                            Captured <strong>{draft.debugSession.consoleEvents.length}</strong> runtime event
-                            {draft.debugSession.consoleEvents.length === 1 ? '' : 's'} and{' '}
-                            <strong>{draft.debugSession.networkEvents?.length || 0}</strong> network timing
-                            {(draft.debugSession.networkEvents?.length || 0) === 1 ? '' : 's'}.
-                          </p>
-                        </div>
-                      )}
+                      {draft.debugSession && (() => {
+                        const formatted = formatEvidence(draft.debugSession);
+                        const c = formatted.counts;
+                        return (
+                          <div className="diagnostics-panel" data-testid="console-session-summary">
+                            <h4 style={{ margin: '0 0 4px', fontSize: '13px' }}>
+                              Debug session: {draft.debugSession.status === 'active' ? 'Active' : 'Stopped'}
+                            </h4>
+                            {draft.debugSession.interruptedByNavigation && (
+                              <p style={{ margin: '0 0 6px', fontSize: '11px', color: 'var(--bs-warning, #d97706)' }}>
+                                ⚠️ Session was interrupted by page navigation/reload.
+                              </p>
+                            )}
+                            <p style={{ margin: '0', fontSize: '12px' }}>
+                              <strong>{c.consoleErrors}</strong> error{c.consoleErrors === 1 ? '' : 's'},{' '}
+                              <strong>{c.consoleWarnings}</strong> warning{c.consoleWarnings === 1 ? '' : 's'},{' '}
+                              <strong>{c.failedNetwork}</strong> failed network call{c.failedNetwork === 1 ? '' : 's'},{' '}
+                              <strong>{c.otherNetwork}</strong> other call{c.otherNetwork === 1 ? '' : 's'}.
+                            </p>
+                            {(c.droppedConsole > 0 || c.droppedFailedNetwork > 0 || c.droppedOtherNetwork > 0) && (
+                              <p style={{ margin: '4px 0 0', fontSize: '11px', color: 'var(--bs-text-secondary)' }}>
+                                Older omitted: {c.droppedConsole} console, {c.droppedFailedNetwork} failed network, {c.droppedOtherNetwork} other.
+                              </p>
+                            )}
+                            <details className="diagnostics-limitations-disclosure" style={{ marginTop: '8px' }}>
+                              <summary style={{ fontSize: '11px', cursor: 'pointer', color: 'var(--bs-text-secondary)' }}>
+                                Not Captured &amp; Limitations
+                              </summary>
+                              <ul style={{ fontSize: '11px', paddingLeft: '16px', margin: '6px 0', color: 'var(--bs-text-secondary)', lineHeight: 1.4 }}>
+                                <li>console.log, info, and debug are omitted for privacy and signal.</li>
+                                <li>Pre-session events and internal net::ERR_* codes are inaccessible without debugger access.</li>
+                                <li>Cross-origin iframes, workers, and service workers are isolated.</li>
+                                <li>Request headers and bodies are never captured.</li>
+                                <li>Response bodies are captured only for failed requests (HTTP &gt;= 400), sanitized, and truncated to 2 KB.</li>
+                              </ul>
+                            </details>
+                          </div>
+                        );
+                      })()}
                       {draft.debugSession && <DebugTimeline session={draft.debugSession} />}
                       {draft.debugSession && (
                         <EvidenceReview session={draft.debugSession} onChange={handleEvidenceReviewChange} />

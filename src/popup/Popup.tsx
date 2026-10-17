@@ -5,6 +5,8 @@ import { captureActiveTab } from './captureService';
 import { CaptureMode } from '../shared/types';
 import { ThemeSwitcher } from '../shared/ThemeSwitcher';
 import { initTheme } from '../shared/theme';
+import { BrandMark } from '../shared/BrandMark';
+import { IconMonitor, IconScissors, IconBug } from '../shared/icons';
 
 export const Popup: React.FC = () => {
   const [isCapturing, setIsCapturing] = useState(false);
@@ -79,11 +81,11 @@ export const Popup: React.FC = () => {
     <div className="popup-container">
       <header className="popup-header">
         <div className="popup-title-wrapper">
-          <span className="popup-logo-icon" aria-hidden="true">📸</span>
+          <BrandMark size={28} className="popup-brand-mark" />
           <h1 className="popup-title">{APP_NAME}</h1>
         </div>
         <div className="popup-header-actions">
-          <ThemeSwitcher />
+          <ThemeSwitcher iconOnly />
           <span className="popup-badge">v{APP_VERSION}</span>
         </div>
       </header>
@@ -126,15 +128,16 @@ export const Popup: React.FC = () => {
           data-mode="viewport"
         >
           <div className="capture-mode-left">
-            <span className="mode-icon" aria-hidden="true">🖥️</span>
+            <span className="mode-icon" aria-hidden="true">
+              <IconMonitor size={16} />
+            </span>
             <div className="mode-text">
               <span className="mode-title">
                 {isCapturing && activeMode === 'viewport' ? 'Capturing...' : 'Capture Viewport'}
               </span>
-              <span className="mode-desc">Visible screen instant capture</span>
+              <span className="mode-desc">Capture the visible area</span>
             </div>
           </div>
-          <span className="mode-shortcut">⚡ Fast</span>
         </button>
 
         <button
@@ -145,15 +148,16 @@ export const Popup: React.FC = () => {
           data-mode="region"
         >
           <div className="capture-mode-left">
-            <span className="mode-icon" aria-hidden="true">✂️</span>
+            <span className="mode-icon" aria-hidden="true">
+              <IconScissors size={16} />
+            </span>
             <div className="mode-text">
               <span className="mode-title">
                 {isCapturing && activeMode === 'region' ? 'Starting...' : 'Select Region'}
               </span>
-              <span className="mode-desc">Drag rectangle on page to crop area</span>
+              <span className="mode-desc">Drag to capture part of the page</span>
             </div>
           </div>
-          <span className="mode-pill">Overlay</span>
         </button>
 
         <button
@@ -163,30 +167,26 @@ export const Popup: React.FC = () => {
           data-testid="start-debug-session-btn"
         >
           <div className="capture-mode-left">
-            <span className="mode-icon" aria-hidden="true">🐞</span>
+            <span className="mode-icon" aria-hidden="true">
+              <IconBug size={16} />
+            </span>
             <div className="mode-text">
               <span className="mode-title">Start Error Session</span>
-              <span className="mode-desc">Capture supported runtime errors only</span>
+              <span className="mode-desc">Record console errors and failed network calls on this tab until you stop.</span>
             </div>
           </div>
-          <span className="mode-pill">Local</span>
         </button>
+      </div>
 
-        <button
-          className="capture-mode-btn capture-mode-disabled"
-          disabled
-          data-testid="capture-fullpage-btn"
-          title="Full-page capture requires DevTools debugging permissions which violate our privacy invariants"
-        >
-          <div className="capture-mode-left">
-            <span className="mode-icon" aria-hidden="true">📜</span>
-            <div className="mode-text">
-              <span className="mode-title">Full Page</span>
-              <span className="mode-desc">Unavailable in MV3 without debugger</span>
-            </div>
-          </div>
-          <span className="mode-badge-na">N/A</span>
-        </button>
+      {/* Unsupported Full Page quiet notice */}
+      <div
+        className="popup-unsupported-note"
+        data-testid="capture-fullpage-note"
+        title="Not available in Chrome extensions without debugger access"
+        aria-description="Not available in Chrome extensions without debugger access"
+      >
+        <span className="unsupported-label">Full Page:</span>
+        <span className="unsupported-desc">Not available in Chrome extensions without debugger access</span>
       </div>
 
       <div className="popup-divider" />
@@ -199,12 +199,12 @@ export const Popup: React.FC = () => {
           disabled={isCapturing}
           data-testid="open-editor-btn"
         >
-          Open Report Editor &amp; History
+          Manage Reports &amp; Settings
         </button>
       </div>
 
       <footer className="popup-footer">
-        Zero host tracking • Local storage only • ₹0 budget
+        Everything stays on your device.
       </footer>
     </div>
   );

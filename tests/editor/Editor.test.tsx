@@ -72,7 +72,7 @@ describe('Editor Component — Phase 3 Features', () => {
     expect(screen.queryByTestId('editor-form-card')).not.toBeInTheDocument();
   });
 
-  it('does not require manual title and derives summary automatically from evidence', async () => {
+  it('does not require manual title and omits duplicate summary row when title has no diagnostics', async () => {
     const draftEmptyTitle: BugReport = { ...mockDraft, title: '' };
     await storage.saveReport(draftEmptyTitle);
     window.history.pushState({}, '', `/editor.html?id=${draftEmptyTitle.id}`);
@@ -80,13 +80,47 @@ describe('Editor Component — Phase 3 Features', () => {
     render(<Editor />);
 
     await waitFor(() => {
+      expect(screen.getByTestId('meta-url')).toBeInTheDocument();
+    });
+
+    // P3: When no diagnostics exist, avoids duplicate summary row repeating page title
+    expect(screen.queryByTestId('derived-summary-preview')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('title-error')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('input-title')).not.toBeInTheDocument();
+  });
+
+  it('renders evidence-based summary in Page Context when diagnostics exist', async () => {
+    const draftWithDiagnostics: BugReport = {
+      ...mockDraft,
+      id: 'draft-diagnostics-test-1',
+      title: '',
+      debugSession: {
+        tabId: 1,
+        startedAt: '2026-10-09T22:20:00.000Z',
+        status: 'stopped',
+        consoleEvents: [
+          {
+            id: 'event-1',
+            kind: 'runtime-error',
+            message: 'Uncaught TypeError: Cannot read property of undefined',
+            timestamp: '2026-10-09T22:20:01.000Z',
+            count: 1,
+          },
+        ],
+      },
+    };
+    await storage.saveReport(draftWithDiagnostics);
+    window.history.pushState({}, '', `/editor.html?id=${draftWithDiagnostics.id}`);
+
+    render(<Editor />);
+
+    await waitFor(() => {
       expect(screen.getByTestId('derived-summary-preview')).toBeInTheDocument();
     });
 
-    // Automatically derives issue title from page title or url without requiring manual title
-    expect(screen.getByTestId('derived-summary-preview')).toHaveTextContent('Issue on: Checkout Flow');
-    expect(screen.queryByTestId('title-error')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('input-title')).not.toBeInTheDocument();
+    expect(screen.getByTestId('derived-summary-preview')).toHaveTextContent(
+      'Runtime error: Uncaught TypeError: Cannot read property of undefined',
+    );
   });
 
   it('renders initial saved state and displays save status correctly', async () => {
@@ -132,9 +166,10 @@ describe('Editor Component — Phase 3 Features', () => {
 
       // Modal appears
       expect(screen.getByTestId('discard-modal')).toBeInTheDocument();
-      expect(screen.getByText(/Discard this bug report\?/i)).toBeInTheDocument();
+      expect(screen.getByText(/Discard this report\?/i)).toBeInTheDocument();
 
       // Click Keep Editing (Cancel)
+      expect(screen.getByTestId('cancel-discard-btn')).toHaveTextContent('Keep editing');
       fireEvent.click(screen.getByTestId('cancel-discard-btn'));
 
       // Modal closed
@@ -158,7 +193,8 @@ describe('Editor Component — Phase 3 Features', () => {
       // Click Discard Draft
       fireEvent.click(screen.getByTestId('discard-draft-btn'));
 
-      // Click Discard and Delete (Confirm)
+      // Click Discard report (Confirm)
+      expect(screen.getByTestId('confirm-discard-btn')).toHaveTextContent('Discard report');
       fireEvent.click(screen.getByTestId('confirm-discard-btn'));
 
       // Wait for discarded notice
@@ -422,7 +458,7 @@ describe('Editor Component — Phase 3 Features', () => {
 
       await waitFor(() => {
         expect(writeTextMock).toHaveBeenCalled();
-        expect(screen.getByTestId('copy-feedback-alert')).toHaveTextContent(/Markdown copied/i);
+        expect(screen.getByTestId('copy-feedback-alert')).toHaveTextContent(/Report copied/i);
       });
     });
 
@@ -453,7 +489,7 @@ describe('Editor Component — Phase 3 Features', () => {
 
       await waitFor(() => {
         expect(screen.getByTestId('copy-error-alert')).toBeInTheDocument();
-        expect(screen.getByTestId('copy-error-alert')).toHaveTextContent(/Failed to copy screenshot/i);
+        expect(screen.getByTestId('copy-error-alert')).toHaveTextContent(/Couldn't copy screenshot/i);
       });
     });
 
@@ -474,7 +510,33 @@ describe('Editor Component — Phase 3 Features', () => {
 
       await waitFor(() => {
         expect(screen.getByTestId('copy-error-alert')).toBeInTheDocument();
-        expect(screen.getByTestId('copy-error-alert')).toHaveTextContent(/Clipboard image copy is not supported/i);
+        expect(screen.getByTestId('copy-error-alert')).toHaveTextContent(/Couldn't copy screenshot/i);
+      });
+    });
+
+    it('displays error notice when AI prompt clipboard copy fails', async () => {
+      await storage.saveReport(mockDraft);
+      window.history.pushState({}, '', `/editor.html?id=${mockDraft.id}`);
+
+      const writeTextMock = vi.fn().mockRejectedValue(new Error('Permission denied'));
+      Object.assign(navigator, {
+        clipboard: {
+          writeText: writeTextMock,
+          write: vi.fn(),
+        },
+      });
+
+      render(<Editor />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('copy-ai-prompt-btn')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByTestId('copy-ai-prompt-btn'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('copy-error-alert')).toBeInTheDocument();
+        expect(screen.getByTestId('copy-error-alert')).toHaveTextContent(/Couldn't copy AI prompt/i);
       });
     });
 
@@ -536,6 +598,13 @@ describe('Editor Component — Phase 3 Features', () => {
       expect(screen.getByTestId('save-status')).toBeInTheDocument();
       expect(screen.getByTestId('theme-switcher-btn')).toBeInTheDocument();
       expect(screen.getByTestId('manage-reports-btn')).toBeInTheDocument();
+
+      // Brand mark image is rendered without bug emoji
+      const brandMark = screen.getByTestId('brand-mark-img');
+      expect(brandMark).toBeInTheDocument();
+      expect(brandMark).toHaveAttribute('width', '24');
+      expect(brandMark).toHaveAttribute('height', '24');
+      expect(screen.queryByText('🐞')).not.toBeInTheDocument();
     });
 
     it('toggles the export dropdown menu on click and closes on Escape', async () => {
@@ -572,6 +641,24 @@ describe('Editor Component — Phase 3 Features', () => {
       fireEvent.keyDown(document, { key: 'Escape' });
       expect(moreBtn).toHaveAttribute('aria-expanded', 'false');
       expect(menu).not.toHaveClass('menu-open');
+
+      // Open with Enter key
+      fireEvent.keyDown(moreBtn, { key: 'Enter' });
+      expect(moreBtn).toHaveAttribute('aria-expanded', 'true');
+      expect(menu).toHaveClass('menu-open');
+
+      // Discard button is reachable in the overflow menu
+      const discardBtn = screen.getByTestId('discard-draft-btn');
+      expect(discardBtn).toBeInTheDocument();
+      expect(discardBtn).toHaveTextContent('Discard report');
+
+      // Press Escape to close again
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(menu).not.toHaveClass('menu-open');
+
+      // Open with Space key
+      fireEvent.keyDown(moreBtn, { key: ' ' });
+      expect(menu).toHaveClass('menu-open');
     });
 
     it('toggles the Page Context sidebar using the header context button', async () => {

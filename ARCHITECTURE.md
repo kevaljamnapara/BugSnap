@@ -134,3 +134,75 @@ Before Phase 1 implementation begins, confirm:
 - Local storage schema and IndexedDB helper.
 - Annotation approach and rendering fidelity.
 - Final permission declaration in `manifest.json`.
+
+## 12. Design System & Core UI Components
+
+BugSnap follows Apple-inspired interface guidelines, strict design tokens, and privacy-first local-only design principles. All controls use tokens from `src/shared/design-tokens.css` with no hardcoded hex/rgba values.
+
+### 12.1 Header Button (`.header-pill-btn`)
+- **Purpose:** Primary and secondary actions in the full-page editor header toolbar.
+- **Variants:**
+  - `btn-primary`: Filled accent (`--bs-accent`, text `--bs-text-on-accent`, shadow `--bs-shadow-sm`). Established as the single primary call-to-action in the header ("Copy Report").
+  - `btn-secondary`: Neutral pill button (`--bs-bg-input`, border `--bs-border-subtle`, text `--bs-text-primary`). Used for secondary actions ("Copy Image", "Copy AI Prompt", "Page Context", "More").
+  - `btn-danger-pill`: Destructive action pill used in confirmation contexts and overflow menus.
+- **States:**
+  - Default: Subtle border, neutral background.
+  - Hover (`:hover`): Elevated brightness, `--bs-bg-hover`, border highlight.
+  - Active (`:active`): Physical micro-interaction (`transform: scale(0.98)`).
+  - Focus (`:focus-visible`): 3px outline `--bs-focus-ring` with 1px offset.
+  - Disabled (`:disabled`): Opacity 0.45, `cursor: not-allowed`, no scale transform.
+- **Sizes & Geometry:** Height 32px, horizontal padding 12px, gap 6px, font size `--bs-text-xs` (11px) with weight 600, pill radius `--bs-radius-full` (9999px token).
+- **Accessibility:** Minimum touch/click target 32px height; full keyboard activation (Enter / Space); `aria-haspopup="menu"` and `aria-expanded` attributes on dropdown triggers.
+
+### 12.2 Icon Button (`ThemeSwitcher`, header/stage toggles)
+- **Purpose:** Compact single-purpose controls (theme cycling, panel collapse, overflow menu).
+- **Variants:**
+  - `icon-only`: Compact 32×32px circular or rounded icon-only button without visible text label.
+  - `labeled`: Pill button containing an inline 14px or 16px SVG icon paired with a descriptive text label.
+- **States:** Default, `:hover` (`--bs-bg-hover`), `:active` (`scale(0.97)`), `:focus-visible` (3px focus ring), `:disabled`.
+- **Sizes:** 32×32px hit target, 14–16px vector stroke icons (`currentColor`, `strokeWidth: 2`).
+- **Accessibility:** Mandatory `aria-label` and `title` providing clear accessible name (e.g. `Theme: Dark`, `Theme: System`, `More options`); inline SVGs carry `aria-hidden="true"`.
+
+### 12.3 Contextual Alert (`.editor-alert`)
+- **Purpose:** Highlighting feedback toasts, error explanations, and status banners.
+- **Variants:**
+  - Error (`.editor-alert-error`): Bordered `--bs-error-border`, background `--bs-error-bg`, text `--bs-error-text`.
+  - Success (`.editor-alert-success`): Bordered `--bs-success-border`, background `--bs-success-bg`, text `--bs-success-text`.
+  - Info / Notice (`.editor-alert-info`): Neutral elevated card with subtle border and text `--bs-text-secondary`.
+- **Copy Structure:** Adheres strictly to the UX-copy discipline: *What happened*, *Why*, and *How to fix* (e.g., "Couldn't copy the report. Your browser blocked clipboard access. Use Export Report to save it as a file.").
+- **States:**
+  - Toast: Transient, auto-dismissed after 3500ms.
+  - Persistent: Sticky inline alert until user remediation or dismissal.
+- **Sizes:** Full width within containing column, padding 10px 14px, radius `--bs-radius-md` (8px), font `--bs-text-sm` (12px).
+- **Accessibility:** Uses `role="alert"` (for errors) or `role="status"` (for copy confirmations) with `aria-live="polite"`.
+
+### 12.4 Label / Value Row (`.metadata-item`)
+- **Purpose:** Presenting captured evidence and system metadata in the Page Context inspector.
+- **Layout & Hierarchy:** Vertically stacked (label directly above value), left-aligned to eliminate ragged right edges on multiline values.
+- **Elements:**
+  - `.metadata-label`: Uppercase, tracking `--bs-tracking-caps`, font size `--bs-text-xs` (11px), color `--bs-text-secondary` ensuring WCAG AA contrast (≥ 4.5:1) in both light and dark themes.
+  - `.metadata-value`: Font size `--bs-text-sm` (12px), color `--bs-text-primary`. Normal text uses `overflow-wrap: break-word` to break on natural word boundaries. URL fields use `overflow-wrap: anywhere` and `word-break: break-all` with `--bs-font-mono`.
+- **Variants:**
+  - Text attribute: Title, platform, viewport size.
+  - URL link: Selectable and navigable monospace link.
+  - Evidence-based summary (`.metadata-summary`): Derived conditionally from real diagnostics or user title; omitted when redundant.
+- **Accessibility:** Semantic HTML elements (`<span>`, `<strong>`, `<a>`); screen-reader friendly structure without ambiguous tabular layouts.
+
+## 13. Debug Session Capture Architecture (D-028, D-030)
+
+### 13.1 Two-World Injection & Secure Relay
+- **MAIN World Capture**: Script hooks injected via `chrome.scripting.executeScript({ world: 'MAIN' })` wrap `console.error`, `console.warn`, `window.fetch`, and `XMLHttpRequest.prototype.open`/`send`. Captures uncaught errors and subresource load failures via a capturing-phase `window.addEventListener('error', ..., true)`, unhandled rejections, and CSP violations. All wrappers are non-interfering, preserve arguments, timing, and errors, and never throw into the page.
+- **ISOLATED World Bridge**: Acts as a bridge between the unprivileged MAIN world and the extension service worker. Receives batched events from MAIN via `window.postMessage` validated against a per-session random nonce, and forwards them to `chrome.runtime.sendMessage`.
+- **Event Batching**: MAIN world buffers events and flushes every 250 ms or 20 events, as well as on `pagehide`/`beforeunload` to prevent service worker flooding.
+
+### 13.2 Stream Separation & Loss Accounting
+- **Console Ring Buffer**: Capped at 500 events (newest kept). Tracks `droppedConsoleCount`.
+- **Failed Network Ring Buffer**: Capped at 500 events (newest kept). Tracks `droppedFailedNetworkCount`.
+- **Other Network Ring Buffer**: Capped at 300 events (newest kept). Tracks `droppedOtherNetworkCount`.
+- **Eviction Isolation**: Influx of successful calls cannot evict failed network requests or console errors.
+- **Explicit Truncation**: Strings exceeding field limits (message 4,000, stack 8,000, URL 2,000, body snippet 2,000) append `[truncated N chars]` and flag `truncated: true`.
+
+### 13.3 Single Shared Formatter & Parity
+- All renderers (`generateMarkdownReport`, `generateCompleteBugReport`, `generateAiDebugPrompt`, and `createPortableBundle`) consume pure formatter functions from `src/shared/evidenceFormatter.ts`.
+- AI debug prompts format all page-originated strings within fenced code blocks accompanied by an untrusted-data security notice.
+

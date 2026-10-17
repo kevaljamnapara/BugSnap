@@ -21,3 +21,15 @@ export const DEFAULT_RETENTION_SETTINGS: RetentionSettings = {
 
 export const EDIT_LOCK_TIMEOUT_MS = 120000; // 2 minutes (safeguards against Chromium 60s background timer throttling)
 export const EDIT_LOCK_HEARTBEAT_INTERVAL_MS = 15000;
+
+// Debug session stream caps (ring buffers, newest kept)
+export const MAX_CONSOLE_EVENTS = 500;
+export const MAX_FAILED_NETWORK_EVENTS = 500;
+export const MAX_OTHER_NETWORK_EVENTS = 300;
+
+// Explicit field truncation limits
+export const MAX_MESSAGE_LENGTH = 4000;
+export const MAX_STACK_LENGTH = 8000;
+export const MAX_URL_LENGTH = 2000;
+export const MAX_BODY_SNIPPET_LENGTH = 2000;
+

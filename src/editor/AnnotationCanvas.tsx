@@ -262,8 +262,11 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
 
   return (
     <div className="annotation-container" data-testid="annotation-container">
-      {/* Floating Apple-style Annotation Toolbar */}
-      <div className="annotation-toolbar" role="toolbar" aria-label="Annotation tools">
+      {/* Stage: Base Image + Interactive SVG Overlay */}
+      <div className="annotation-stage" data-testid="annotation-stage">
+        <div className="stage-content-container">
+          {/* Floating Apple-style Annotation Toolbar anchored directly above canvas */}
+          <div className="annotation-toolbar" role="toolbar" aria-label="Annotation tools">
         <div className="toolbar-group">
           <button
             type="button"
@@ -419,16 +422,14 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
                     <line x1="12" y1="15" x2="12" y2="3" />
                   </svg>
                 </span>
-                <span className="tool-btn-label">Export</span>
+                <span className="tool-btn-label">Export Report</span>
               </button>
             </div>
           </>
         )}
       </div>
 
-      {/* Stage: Base Image + Interactive SVG Overlay */}
-      <div className="annotation-stage" data-testid="annotation-stage">
-        <div className="stage-wrapper">
+      <div className="stage-wrapper">
           <img
             ref={imageRef}
             src={imageSrc}
@@ -576,6 +577,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
               />
             )}
           </svg>
+        </div>
         </div>
       </div>
 

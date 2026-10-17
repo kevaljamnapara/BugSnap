@@ -101,8 +101,8 @@ describe('One-Click Bug Report & Evidence Capture Suite', () => {
     expect(result.markdown).toContain('# BugSnap Bug Report');
     expect(result.markdown).toContain('## Summary');
     expect(result.markdown).toContain('## Page Context');
-    expect(result.markdown).toContain('## Console Diagnostics');
-    expect(result.markdown).toContain('## Network Diagnostics');
+    expect(result.markdown).toContain('## Console Errors & Warnings');
+    expect(result.markdown).toContain('## Network Failures & Errors');
     expect(result.markdown).toContain('## Reproduction Context');
     expect(result.markdown).toContain('## Environment Diagnostics');
     expect(result.markdown).toContain('## Debugging Timeline');
@@ -112,8 +112,8 @@ describe('One-Click Bug Report & Evidence Capture Suite', () => {
     // HTML contains matching structure
     expect(result.html).toContain('class="bugsnap-report"');
     expect(result.html).toContain('BugSnap Bug Report');
-    expect(result.html).toContain('Console Diagnostics');
-    expect(result.html).toContain('Network Diagnostics');
+    expect(result.html).toContain('Console Errors & Warnings');
+    expect(result.html).toContain('Network Failures & Errors');
   });
 
   // 2. Report generation when some diagnostic sources are unavailable
@@ -138,7 +138,7 @@ describe('One-Click Bug Report & Evidence Capture Suite', () => {
 
     const result = generateCompleteBugReport(minimalReport);
 
-    expect(result.summary).toBe('Captured browser issue');
+    expect(result.summary).toBe('Captured page');
     expect(result.markdown).toContain('Console error capture was not active during this capture');
     expect(result.markdown).toContain('Network diagnostic capture was not active for this capture');
     expect(result.markdown).toContain('Debugging timeline not available');
@@ -276,7 +276,8 @@ describe('One-Click Bug Report & Evidence Capture Suite', () => {
 
     expect(fetchSpy).not.toHaveBeenCalled();
     expect(xhrSpy).not.toHaveBeenCalled();
-    expect(result.markdown).toContain('BugSnap runs ₹0 locally with zero external network requests');
+    expect(result.markdown).toContain('BugSnap operates entirely locally with zero external network transmission');
+    expect(result.markdown).not.toContain('₹0');
   });
 
   // 10. Removal of the required manual-form workflow without breaking existing evidence capture

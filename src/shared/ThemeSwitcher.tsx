@@ -1,11 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ThemeMode, getThemePreference, setThemePreference, applyTheme } from './theme';
-
-const ICONS: Record<ThemeMode, string> = {
-  system: '◑',
-  light: '☀',
-  dark: '☾',
-};
+import { IconSystem, IconSun, IconMoon } from './icons';
 
 const LABELS: Record<ThemeMode, string> = {
   system: 'System',
@@ -15,7 +10,13 @@ const LABELS: Record<ThemeMode, string> = {
 
 const CYCLE: ThemeMode[] = ['system', 'light', 'dark'];
 
-export function ThemeSwitcher({ className }: { className?: string }) {
+export function ThemeSwitcher({
+  className,
+  iconOnly = false,
+}: {
+  className?: string;
+  iconOnly?: boolean;
+}) {
   const [mode, setMode] = useState<ThemeMode>('system');
 
   useEffect(() => {
@@ -30,17 +31,32 @@ export function ThemeSwitcher({ className }: { className?: string }) {
     await setThemePreference(next);
   };
 
+  const renderIcon = () => {
+    switch (mode) {
+      case 'light':
+        return <IconSun size={14} />;
+      case 'dark':
+        return <IconMoon size={14} />;
+      case 'system':
+      default:
+        return <IconSystem size={14} />;
+    }
+  };
+
   return (
     <button
       type="button"
       className={`btn btn-secondary btn-sm ${className ?? ''}`}
       onClick={handleCycle}
-      aria-label={`Theme: ${LABELS[mode]}. Click to change.`}
+      aria-label={`Theme: ${LABELS[mode]}`}
       title={`Theme: ${LABELS[mode]}`}
       data-testid="theme-switcher-btn"
     >
-      <span aria-hidden="true">{ICONS[mode]}</span>
-      <span>{LABELS[mode]}</span>
+      <span aria-hidden="true" style={{ display: 'inline-flex', alignItems: 'center' }}>
+        {renderIcon()}
+      </span>
+      {!iconOnly && <span>{LABELS[mode]}</span>}
     </button>
   );
 }
+

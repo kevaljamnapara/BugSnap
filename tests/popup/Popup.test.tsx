@@ -9,10 +9,15 @@ describe('Popup Component', () => {
     vi.clearAllMocks();
   });
 
-  it('renders BugSnap title and version badge', () => {
+  it('renders BugSnap title, version badge, and brand mark image without camera emoji', () => {
     render(<Popup />);
     expect(screen.getByRole('heading', { name: APP_NAME })).toBeInTheDocument();
     expect(screen.getByText(`v${APP_VERSION}`)).toBeInTheDocument();
+    const brandMark = screen.getByTestId('brand-mark-img');
+    expect(brandMark).toBeInTheDocument();
+    expect(brandMark).toHaveAttribute('width', '28');
+    expect(brandMark).toHaveAttribute('height', '28');
+    expect(screen.queryByText('📸')).not.toBeInTheDocument();
   });
 
   it('renders Capture Bug and Open Report Editor buttons', () => {
@@ -168,10 +173,27 @@ describe('Popup Component', () => {
     expect(captureSpy).toHaveBeenCalledWith('region');
   });
 
-  it('renders Full Page capture button as disabled with explanatory title', () => {
+  it('renders Full Page as unsupported quiet note rather than a primary capture button', () => {
     render(<Popup />);
-    const fullPageBtn = screen.getByTestId('capture-fullpage-btn');
-    expect(fullPageBtn).toBeDisabled();
-    expect(fullPageBtn).toHaveAttribute('title', expect.stringContaining('privacy'));
+    // Full Page is not rendered as a primary capture button in the modes section
+    expect(screen.queryByTestId('capture-fullpage-btn')).not.toBeInTheDocument();
+
+    // Instead rendered as an accessible quiet notice with clear explanation
+    const note = screen.getByTestId('capture-fullpage-note');
+    expect(note).toBeInTheDocument();
+    expect(note).toHaveAttribute(
+      'title',
+      'Not available in Chrome extensions without debugger access',
+    );
+    expect(note).toHaveTextContent(/Full Page:/i);
+    expect(note).toHaveTextContent(/Not available in Chrome extensions without debugger access/i);
+  });
+
+  it('renders Start Error Session with plain description of what is collected', () => {
+    render(<Popup />);
+    expect(screen.getByTestId('start-debug-session-btn')).toBeInTheDocument();
+    expect(
+      screen.getByText('Record console errors and failed network calls on this tab until you stop.'),
+    ).toBeInTheDocument();
   });
 });
